@@ -13,6 +13,7 @@ class Birthday:
     day: int
     month: int
     year: Optional[int]
+    gender: Optional[str]  # "M" yoki "F"
 
 
 def connect(db_path: str) -> sqlite3.Connection:
@@ -27,10 +28,15 @@ def connect(db_path: str) -> sqlite3.Connection:
             day       INTEGER NOT NULL,
             month     INTEGER NOT NULL,
             year      INTEGER,
+            gender    TEXT,
             PRIMARY KEY (chat_id, user_id)
         )
         """
     )
+    try:
+        conn.execute("ALTER TABLE birthdays ADD COLUMN gender TEXT")
+    except sqlite3.OperationalError:
+        pass  # ustun allaqachon mavjud
     conn.commit()
     return conn
 
@@ -44,19 +50,21 @@ def upsert_birthday(
     day: int,
     month: int,
     year: Optional[int],
+    gender: Optional[str],
 ) -> None:
     conn.execute(
         """
-        INSERT INTO birthdays (chat_id, user_id, full_name, username, day, month, year)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO birthdays (chat_id, user_id, full_name, username, day, month, year, gender)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(chat_id, user_id) DO UPDATE SET
             full_name = excluded.full_name,
             username  = excluded.username,
             day       = excluded.day,
             month     = excluded.month,
-            year      = excluded.year
+            year      = excluded.year,
+            gender    = excluded.gender
         """,
-        (chat_id, user_id, full_name, username, day, month, year),
+        (chat_id, user_id, full_name, username, day, month, year, gender),
     )
     conn.commit()
 
@@ -70,10 +78,12 @@ def delete_birthday(conn: sqlite3.Connection, chat_id: int, user_id: int) -> boo
     return cur.rowcount > 0
 
 
+_COLUMNS = "chat_id, user_id, full_name, username, day, month, year, gender"
+
+
 def get_birthday(conn: sqlite3.Connection, chat_id: int, user_id: int) -> Optional[Birthday]:
     row = conn.execute(
-        "SELECT chat_id, user_id, full_name, username, day, month, year "
-        "FROM birthdays WHERE chat_id = ? AND user_id = ?",
+        f"SELECT {_COLUMNS} FROM birthdays WHERE chat_id = ? AND user_id = ?",
         (chat_id, user_id),
     ).fetchone()
     return Birthday(*row) if row else None
@@ -81,8 +91,7 @@ def get_birthday(conn: sqlite3.Connection, chat_id: int, user_id: int) -> Option
 
 def list_birthdays_for_chat(conn: sqlite3.Connection, chat_id: int) -> list[Birthday]:
     rows = conn.execute(
-        "SELECT chat_id, user_id, full_name, username, day, month, year "
-        "FROM birthdays WHERE chat_id = ?",
+        f"SELECT {_COLUMNS} FROM birthdays WHERE chat_id = ?",
         (chat_id,),
     ).fetchall()
     return [Birthday(*row) for row in rows]
@@ -90,8 +99,7 @@ def list_birthdays_for_chat(conn: sqlite3.Connection, chat_id: int) -> list[Birt
 
 def list_birthdays_on(conn: sqlite3.Connection, month: int, day: int) -> list[Birthday]:
     rows = conn.execute(
-        "SELECT chat_id, user_id, full_name, username, day, month, year "
-        "FROM birthdays WHERE month = ? AND day = ?",
+        f"SELECT {_COLUMNS} FROM birthdays WHERE month = ? AND day = ?",
         (month, day),
     ).fetchall()
     return [Birthday(*row) for row in rows]

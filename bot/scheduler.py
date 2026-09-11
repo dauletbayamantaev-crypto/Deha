@@ -11,9 +11,25 @@ from bot.handlers import _mention
 
 logger = logging.getLogger(__name__)
 
+_ADJECTIVE = {
+    "M": "zabardast",
+    "F": "go'zal",
+}
+_DEFAULT_ADJECTIVE = "qadrli"
+
+
+def _congratulation(team_name: str, mention: str, gender: str | None, age: int | None) -> str:
+    adjective = _ADJECTIVE.get(gender, _DEFAULT_ADJECTIVE)
+    age_part = f" ({age} yosh)" if age is not None else ""
+    return (
+        f"🎉 {team_name} jamoasining {adjective} xodimi {mention}{age_part}!\n"
+        "Sizni bugungi tug'ilgan kuningiz bilan tabriklaymiz! 🥳"
+    )
+
 
 async def send_daily_birthdays(context: ContextTypes.DEFAULT_TYPE) -> None:
     conn: sqlite3.Connection = context.bot_data["db"]
+    team_name: str = context.bot_data["team_name"]
     today = date.today()
 
     entries = db.list_birthdays_on(conn, today.month, today.day)
@@ -30,19 +46,13 @@ async def send_daily_birthdays(context: ContextTypes.DEFAULT_TYPE) -> None:
         by_chat.setdefault(b.chat_id, []).append(b)
 
     for chat_id, people in by_chat.items():
-        mentions = []
+        messages = []
         for b in people:
             mention = _mention(b.full_name, b.username, b.user_id)
-            if b.year:
-                age = today.year - b.year
-                mention += f" ({age} yosh)"
-            mentions.append(mention)
+            age = (today.year - b.year) if b.year else None
+            messages.append(_congratulation(team_name, mention, b.gender, age))
 
-        if len(mentions) == 1:
-            text = f"🎉🎂 Bugun {mentions[0]} ning tug'ilgan kuni! Tabriklaymiz! 🥳"
-        else:
-            joined = ", ".join(mentions)
-            text = f"🎉🎂 Bugun {joined} ning tug'ilgan kuni! Barchalarini tabriklaymiz! 🥳"
+        text = "\n\n".join(messages)
 
         try:
             await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")

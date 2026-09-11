@@ -13,6 +13,7 @@ class Config:
     reminder_hour: int
     reminder_minute: int
     db_path: str
+    team_name: str
 
 
 def load_config() -> Config:
@@ -28,4 +29,5 @@ def load_config() -> Config:
         reminder_hour=int(os.environ.get("REMINDER_HOUR", "9")),
         reminder_minute=int(os.environ.get("REMINDER_MINUTE", "0")),
         db_path=os.environ.get("DB_PATH", "birthdays.db"),
+        team_name=os.environ.get("TEAM_NAME", "Jamoa"),
     )

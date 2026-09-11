@@ -10,15 +10,24 @@ Barcha buyruqlar (`/start`, `/help` dan tashqari) faqat guruh ichida ishlaydi.
 
 | Buyruq | Tavsif |
 |---|---|
-| `/setbirthday KK-OO` yoki `/setbirthday KK-OO-YYYY` | Tug'ilgan kuningizni saqlaydi. Masalan: `/setbirthday 15-03` yoki `/setbirthday 15-03-1998` |
+| `/newbirthday` | Tug'ilgan kuningizni qo'shadi — bot avval sanani, so'ng tugma orqali jinsingizni so'raydi |
 | `/mybirthday` | Saqlangan tug'ilgan kuningizni ko'rsatadi |
 | `/removebirthday` | Tug'ilgan kuningizni o'chiradi |
-| `/birthdays` | Guruhdagi barcha tug'ilgan kunlar ro'yxatini (yaqinlashib kelayotgan tartibda) ko'rsatadi |
+| `/comingbirthday` | Guruhdagi barcha tug'ilgan kunlar ro'yxatini (yaqinlashib kelayotgan tartibda) ko'rsatadi |
 | `/help` | Yordam xabari |
+
+Buyruqlarni qo'lda yozish shart emas — xabar yozish maydonida "/" belgisini
+bosganingizda Telegram ularni menyu sifatida ko'rsatadi.
+
+`/newbirthday` bosilgach, bot avval sanani (`15-03` yoki `15-03-1998`
+ko'rinishida) so'raydi, so'ng "👦 O'g'il bola" / "👧 Qiz bola" tugmalarini
+chiqaradi. Shu jins asosida tabrik matni moslashtiriladi (masalan: "zabardast
+xodimi" yoki "go'zal xodimi").
 
 Har kuni belgilangan vaqtda (standart: 09:00, `Asia/Tashkent`) bot barcha
 guruhlarni tekshirib, o'sha kuni tug'ilgan kuni bo'lganlarni bittalab yoki
-guruh bo'lib tabriklaydi.
+guruh bo'lib, `TEAM_NAME` o'zgaruvchisida ko'rsatilgan jamoa nomi bilan
+tabriklaydi.
 
 ## O'rnatish
 
@@ -86,6 +95,7 @@ sudo systemctl status birthday-bot
 | `REMINDER_HOUR` | Eslatma yuboriladigan soat (0-23) | `9` |
 | `REMINDER_MINUTE` | Eslatma yuboriladigan daqiqa | `0` |
 | `DB_PATH` | SQLite ma'lumotlar bazasi fayli | `birthdays.db` |
+| `TEAM_NAME` | Tabrik xabarida ko'rinadigan jamoa nomi (masalan `SOS`) | `Jamoa` |
 
 ## Ma'lumotlar bazasi
 

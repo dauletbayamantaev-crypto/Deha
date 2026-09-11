@@ -1,28 +1,25 @@
 import sqlite3
 from datetime import date
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatType
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 
 from bot import database as db
 from bot.dateparse import parse_birthday
 
+ASK_DATE, ASK_GENDER = range(2)
+
 HELP_TEXT = (
     "🎂 *Tug'ilgan kunlar boti*\n\n"
-    "/setbirthday KK-OO yoki KK-OO-YYYY — tug'ilgan kuningizni saqlash\n"
-    "  Masalan: `/setbirthday 15-03` yoki `/setbirthday 15-03-1998`\n"
+    "/newbirthday — tug'ilgan kuningizni qo'shish (savol-javob tartibida)\n"
     "/mybirthday — saqlangan tug'ilgan kuningizni ko'rish\n"
     "/removebirthday — tug'ilgan kuningizni o'chirish\n"
-    "/birthdays — guruhdagi barcha tug'ilgan kunlar ro'yxati\n"
+    "/comingbirthday — guruhdagi yaqinlashib kelayotgan tug'ilgan kunlar\n"
     "/help — shu xabarni ko'rsatish\n\n"
     "Bot har kuni ertalab guruhga o'sha kuni tug'ilgan kuni bo'lganlarni "
-    "avtomatik eslatib turadi."
-)
-
-USAGE_TEXT = (
-    "Format: `/setbirthday KK-OO` yoki `/setbirthday KK-OO-YYYY`\n"
-    "Masalan: `/setbirthday 15-03` yoki `/setbirthday 15-03-1998`"
+    "avtomatik eslatib turadi.\n\n"
+    "Buyruqlarni xabar yozish maydonidagi \"/\" tugmasini bosib ham tanlashingiz mumkin."
 )
 
 
@@ -41,36 +38,81 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(HELP_TEXT, parse_mode="Markdown")
 
 
-async def set_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    user = update.effective_user
-    conn: sqlite3.Connection = context.bot_data["db"]
+# ---- /newbirthday: savol-javob tartibidagi suhbat ----
 
+async def new_birthday_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    chat = update.effective_chat
     if chat.type == ChatType.PRIVATE:
         await update.message.reply_text(
             "Bu buyruq faqat jamoa guruhida ishlaydi. Guruhga qo'shing va o'sha yerda ishlating."
         )
-        return
+        return ConversationHandler.END
 
-    if not context.args:
-        await update.message.reply_text(USAGE_TEXT, parse_mode="Markdown")
-        return
+    await update.message.reply_text(
+        "🎂 Tug'ilgan kuningizni kiriting.\n\n"
+        "Format: *kun-oy* yoki *kun-oy-yil*\n"
+        "Masalan: `15-03` yoki `15-03-1998`\n\n"
+        "Bekor qilish uchun /cancel yozing.",
+        parse_mode="Markdown",
+    )
+    return ASK_DATE
 
-    parsed = parse_birthday(" ".join(context.args))
+
+async def new_birthday_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    parsed = parse_birthday(update.message.text.strip())
     if parsed is None:
         await update.message.reply_text(
-            "❌ Sana noto'g'ri formatda yoki mavjud emas.\n\n" + USAGE_TEXT,
+            "❌ Sana noto'g'ri formatda yoki mavjud emas.\n\n"
+            "Qaytadan urinib ko'ring, masalan: `15-03` yoki `15-03-1998`\n"
+            "Bekor qilish uchun /cancel yozing.",
             parse_mode="Markdown",
         )
-        return
+        return ASK_DATE
 
-    day, month, year = parsed
+    context.user_data["pending_birthday"] = parsed
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("👦 O'g'il bola", callback_data="gender:M"),
+                InlineKeyboardButton("👧 Qiz bola", callback_data="gender:F"),
+            ]
+        ]
+    )
+    await update.message.reply_text("Jinsingizni tanlang:", reply_markup=keyboard)
+    return ASK_GENDER
+
+
+async def new_birthday_gender(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    pending = context.user_data.pop("pending_birthday", None)
+    if pending is None:
+        await query.edit_message_text("Sessiya eskirgan, /newbirthday bilan qaytadan boshlang.")
+        return ConversationHandler.END
+
+    day, month, year = pending
+    gender = query.data.split(":")[1]
+
+    user = update.effective_user
+    chat = update.effective_chat
+    conn: sqlite3.Connection = context.bot_data["db"]
     full_name = user.full_name or user.first_name
-    db.upsert_birthday(conn, chat.id, user.id, full_name, user.username, day, month, year)
+
+    db.upsert_birthday(conn, chat.id, user.id, full_name, user.username, day, month, year, gender)
 
     date_str = f"{day:02d}.{month:02d}" + (f".{year}" if year else "")
-    await update.message.reply_text(f"✅ {full_name} uchun tug'ilgan kun saqlandi: {date_str}")
+    await query.edit_message_text(f"✅ {full_name} uchun tug'ilgan kun saqlandi: {date_str}")
+    return ConversationHandler.END
 
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.pop("pending_birthday", None)
+    await update.message.reply_text("Bekor qilindi.")
+    return ConversationHandler.END
+
+
+# ---- boshqa buyruqlar ----
 
 async def my_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
@@ -84,7 +126,7 @@ async def my_birthday(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     b = db.get_birthday(conn, chat.id, user.id)
     if b is None:
         await update.message.reply_text(
-            "Sizning tug'ilgan kuningiz saqlanmagan. /setbirthday orqali qo'shing."
+            "Sizning tug'ilgan kuningiz saqlanmagan. /newbirthday orqali qo'shing."
         )
         return
 
@@ -119,7 +161,7 @@ async def list_birthdays(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     entries = db.list_birthdays_for_chat(conn, chat.id)
     if not entries:
         await update.message.reply_text(
-            "Bu guruhda hali hech kim tug'ilgan kunini saqlamagan. /setbirthday bilan qo'shing."
+            "Bu guruhda hali hech kim tug'ilgan kunini saqlamagan. /newbirthday bilan qo'shing."
         )
         return
 
