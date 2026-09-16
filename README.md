@@ -1,3 +1,14 @@
+# Deha — jamoa Telegram botlari
+
+Repozitoriyada ikkita mustaqil bot bor, har biri alohida token va baza bilan ishlaydi:
+
+| Bot | Papka | Vazifasi |
+|---|---|---|
+| Tug'ilgan kunlar boti | `bot/` + `main.py` | Guruhda tug'ilgan kunlarni eslatadi |
+| TZ va navbat boti | [`tzbot/`](tzbot/README.md) | SMM dan TZ qabul qiladi, navbat va deadline'larni boshqaradi |
+
+---
+
 # Tug'ilgan kunlar eslatuvchi Telegram bot
 
 Jamoa guruhingizdagi a'zolarning tug'ilgan kunlarini saqlaydi va har kuni
