@@ -1,8 +1,4 @@
-"""TZ (texnik topshiriq) shabloni: maydonlar, parser va tekshiruvlar.
-
-Bu modul Telegram'dan mustaqil — faqat matnni o'qiydi, tekshiradi va
-xatoliklar ro'yxatini qaytaradi. Shu sabab uni alohida sinash oson.
-"""
+"""TZ maydonlari, shablon parseri va tekshiruvlar (Telegram'dan mustaqil)."""
 
 import re
 from dataclasses import dataclass
@@ -12,56 +8,46 @@ from typing import Optional
 from app.dateparse import parse_deadline
 
 
-# ---- ish turlari va ular uchun minimal muddat ----
+# ---- ish turlari ----
 
 @dataclass(frozen=True)
-class WorkType:
+class Kind:
     key: str
-    label: str
-    min_hours: int  # shu turdagi ish uchun eng kam yo'l qo'yiladigan muddat
+    label: str  # tugmada va "Tasnif" da ko'rinadi
+    tag: str    # hashtag
 
 
-WORK_TYPES: tuple[WorkType, ...] = (
-    WorkType("post", "📱 Post / story maketi", 3),
-    WorkType("karusel", "🎠 Karusel (2+ slayd)", 6),
-    WorkType("video", "🎬 Reels / video montaj", 24),
-    WorkType("print", "🖨 Banner / print maketi", 24),
-    WorkType("brending", "🎨 Logo / brending", 72),
-    WorkType("boshqa", "✍️ Boshqa", 4),
+KINDS: tuple[Kind, ...] = (
+    Kind("karusel", "Karusel post", "karusel"),
+    Kind("post", "Feed post", "post"),
+    Kind("story", "Story", "story"),
+    Kind("reels", "Reels / video", "reels"),
+    Kind("banner", "Banner / print", "banner"),
+    Kind("boshqa", "Boshqa", "dizayn"),
 )
 
-WORK_TYPE_BY_KEY: dict[str, WorkType] = {w.key: w for w in WORK_TYPES}
+KIND_BY_KEY: dict[str, Kind] = {k.key: k for k in KINDS}
 
-_WORK_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
+_KIND_KEYWORDS: dict[str, tuple[str, ...]] = {
     "karusel": ("karusel", "carousel", "slayd", "slide"),
-    "video": ("video", "reels", "rils", "montaj", "animatsiya", "anim"),
-    "print": ("print", "banner", "bosma", "billboard", "vizitka", "buklet", "roll"),
-    "brending": ("logo", "brend", "brand", "firma uslubi", "identity", "guideline"),
-    "post": ("post", "story", "stori", "feed", "maket", "publikatsiya"),
-    "boshqa": ("boshqa", "other", "turli"),
+    "reels": ("reels", "rils", "video", "montaj", "animatsiya"),
+    "story": ("story", "stori"),
+    "banner": ("banner", "print", "bosma", "billboard", "vizitka", "buklet"),
+    "post": ("post", "feed", "publikatsiya", "maket"),
 }
 
 
-# ---- prioritet ----
-
-PRIORITY_URGENT = "urgent"
-PRIORITY_NORMAL = "normal"
-PRIORITY_PLANNED = "planned"
-
-PRIORITY_LABEL = {
-    PRIORITY_URGENT: "🔥 Shoshilinch",
-    PRIORITY_NORMAL: "🟡 Oddiy",
-    PRIORITY_PLANNED: "🟢 Rejali",
-}
+def parse_kind(text: str) -> Kind:
+    """Matndan ish turini topadi, topilmasa «Boshqa» qaytaradi."""
+    folded = _fold(text)
+    for key, words in _KIND_KEYWORDS.items():
+        if any(word in folded for word in words):
+            return KIND_BY_KEY[key]
+    return KIND_BY_KEY["boshqa"]
 
 
-def priority_for(work_type: WorkType, lead_hours: float) -> str:
-    """Prioritetni TZ beruvchi emas, berilgan muddat belgilaydi."""
-    if lead_hours < work_type.min_hours:
-        return PRIORITY_URGENT
-    if lead_hours < 24:
-        return PRIORITY_NORMAL
-    return PRIORITY_PLANNED
+def build_tasnif(client: str, kind_label: str) -> str:
+    return f"{client} uchun {kind_label.lower()}"
 
 
 # ---- maydonlar ----
@@ -78,60 +64,47 @@ class Field:
 
 FIELDS: tuple[Field, ...] = (
     Field(
-        "brand", "Brend",
-        ("brend", "brand", "mijoz", "klient", "kompaniya"),
-        "🏷 Qaysi brend / mijoz uchun?",
-        "Nestle",
+        "client", "Mijoz",
+        ("mijoz", "brend", "brand", "klient", "kompaniya"),
+        "🏷 <b>Mijoz</b> kim?",
+        "Xazna",
     ),
     Field(
-        "work_type", "Ish turi",
-        ("ish turi", "ish", "turi", "tur", "vazifa", "task"),
-        "🗂 Ish turi qanday?",
-        "post",
+        "tasnif", "Tasnif",
+        ("tasnif", "tur", "turi", "ish turi", "vazifa"),
+        "🗂 <b>Tasnif</b> — qanday ish?",
+        "Xazna uchun karusel post",
     ),
     Field(
-        "fmt", "Format",
-        ("format", "o'lcham", "olcham", "razmer", "size", "hajmi"),
-        "📐 Format / o'lcham qanday?",
-        "1080x1350",
-    ),
-    Field(
-        "copy_text", "Matn",
-        ("matn", "text", "tekst", "kontent", "copy", "kopirayt"),
-        "✍️ Maketdagi matn: sarlavha, tavsif, CTA — to'liq yozing.\n"
-        "Matn kerak bo'lmasa «matnsiz» deb yozing.",
-        "Sarlavha: Kuzgi chegirma -30% | CTA: Buyurtma bering",
-    ),
-    Field(
-        "materials", "Materiallar",
-        ("materiallar", "material", "fayllar", "fayl", "surat", "rasm", "foto", "logotip"),
-        "📎 Materiallar qayerda? Havola bering yoki qayerdan olishni aniq yozing.",
-        "https://drive.google.com/... (logotip + 4 ta foto)",
-    ),
-    Field(
-        "reference", "Referens",
-        ("referens", "reference", "namuna", "misol", "ref"),
-        "🔗 Referens bormi? Bo'lmasa «yo'q» deb yozing.",
-        "https://pin.it/... yoki yo'q",
-        required=False,
+        "subject", "Mavzu",
+        ("mavzu", "tema", "sarlavha", "tematika"),
+        "📌 <b>Mavzu</b> nima haqida?",
+        "Xalqaro o'tkazmalar qo'llanmasi",
     ),
     Field(
         "deadline", "Deadline",
-        ("deadline", "dedlayn", "dedline", "muddat", "qachon", "srok"),
-        "⏰ Deadline qachon? Masalan: «ertaga 15:00» yoki «18-09 12:00»",
-        "ertaga 15:00",
+        ("deadline", "dedline", "dedlayn", "muddat", "qachon", "srok"),
+        "⏰ <b>Deadline</b> qachon?",
+        "20.09.2026 18:00",
     ),
     Field(
-        "reason", "Sabab",
-        ("sabab", "nega", "prichina"),
-        "🔥 Bu muddat standartdan qisqa — nega shoshilinch ekanini yozing.",
-        "Mijoz aksiyani bugun kechqurun e'lon qilmoqchi",
-        required=False,
+        "designers", "Dizayner",
+        ("dizayner", "dizaynerlar", "masul", "mas'ul", "ijrochi"),
+        "👤 <b>Dizayner</b> kim? @username ko'rinishida yozing.\n"
+        "Bir nechta bo'lsa bo'sh joy bilan: @ali @vali",
+        "@nickname",
+    ),
+    Field(
+        "body", "Matn",
+        ("matn", "tz", "kontent", "text", "tekst", "sahifalar", "kopirayt"),
+        "✍️ <b>TZ matnini</b> bitta xabarda yuboring.\n"
+        "Masalan:\n<code>1. Page\nLorem ipsum\n\n2. Page\nLorem ipsum</code>",
+        "1. Page ...",
     ),
     Field(
         "note", "Izoh",
         ("izoh", "qoshimcha", "qo'shimcha", "note", "eslatma"),
-        "💬 Qo'shimcha izoh (ixtiyoriy).",
+        "💬 <b>Izoh</b> bormi? Bo'lmasa «yo'q» deb yozing.",
         "Logotip oq rangda bo'lsin",
         required=False,
     ),
@@ -139,33 +112,32 @@ FIELDS: tuple[Field, ...] = (
 
 FIELD_BY_KEY: dict[str, Field] = {f.key: f for f in FIELDS}
 
-# Savol-javob tartibida so'raladigan maydonlar
-# ("reason" faqat shoshilinch bo'lsa so'raladi, "note" faqat shablonda bor)
-GUIDED_STEPS: tuple[str, ...] = (
-    "brand", "work_type", "fmt", "copy_text", "materials", "reference", "deadline",
-)
-
 TEMPLATE = (
-    "Brend: \n"
-    "Ish turi: post / karusel / video / print / brending\n"
-    "Format: 1080x1350\n"
-    "Matn: \n"
-    "Materiallar: \n"
-    "Referens: \n"
-    "Deadline: kun-oy soat:daqiqa\n"
+    "Mijoz: \n"
+    "Tasnif: \n"
+    "Mavzu: \n"
+    "Deadline: 20.09.2026 18:00\n"
+    "Dizayner: @nickname\n"
+    "Matn:\n"
+    "1. Page\n"
+    "\n"
+    "2. Page\n"
+    "\n"
     "Izoh: "
 )
 
 
-# ---- matnni tozalash yordamchilari ----
+# ---- matn yordamchilari ----
 
 _APOSTROPHES = ("ʻ", "ʼ", "‘", "’", "`", "´")
 
 _EMPTY_VALUES = {
     "", "-", "--", "—", ".", "?", "??", "yoq", "yuq", "net", "no",
     "bilmadim", "keyin", "keyinroq", "aniq emas", "malum emas", "ozingiz bilasiz",
-    "har doimgidek", "odatdagidek", "tez", "tezroq", "hozir", "bugun", "imkon qadar tez",
+    "har doimgidek", "odatdagidek", "tez", "tezroq", "hozir", "imkon qadar tez",
 }
+
+_USERNAME = re.compile(r"@?([A-Za-z][A-Za-z0-9_]{3,31})")
 
 
 def _fold(text: str) -> str:
@@ -180,18 +152,28 @@ def _key_form(text: str) -> str:
 
 
 def is_empty(value: str) -> bool:
-    """«yo'q», «keyin», «tezroq» kabi javoblar to'ldirilgan hisoblanmaydi."""
     return _key_form(value) in _EMPTY_VALUES
 
 
-def parse_work_type(text: str) -> Optional[WorkType]:
-    folded = _key_form(text)
-    if folded in WORK_TYPE_BY_KEY:
-        return WORK_TYPE_BY_KEY[folded]
-    for key, words in _WORK_TYPE_KEYWORDS.items():
-        if any(word in folded for word in words):
-            return WORK_TYPE_BY_KEY[key]
-    return None
+def slug(text: str) -> str:
+    """«Xazna» -> «xazna», «Coca Cola» -> «coca_cola» (hashtag uchun)."""
+    letters: list[str] = []
+    for char in _fold(text).replace("'", ""):
+        if char.isalnum():
+            letters.append(char)
+        elif letters and letters[-1] != "_":
+            letters.append("_")
+    return "".join(letters).strip("_") or "mijoz"
+
+
+def parse_usernames(text: str) -> list[str]:
+    """«@ali, @vali» -> ['ali', 'vali'] (takrorlanmaydi, tartib saqlanadi)."""
+    found: list[str] = []
+    for match in _USERNAME.finditer(text):
+        name = match.group(1).lower()
+        if name not in found:
+            found.append(name)
+    return found
 
 
 # ---- shablonni o'qish ----
@@ -205,11 +187,9 @@ _LINE = re.compile(r"^\s*([^:\n]{2,30}?)\s*:\s*(.*)$")
 
 
 def parse_template(text: str) -> dict[str, str]:
-    """Shablon ko'rinishidagi matndan maydonlarni ajratadi.
+    """Tanilgan kalit yangi maydonni boshlaydi, qolgan qatorlar davomi bo'ladi.
 
-    Tanilgan kalit («Brend:», «Deadline: ...») yangi maydonni boshlaydi, qolgan
-    qatorlar oldingi maydonning davomi bo'ladi — shu sabab «Matn» bir nechta
-    qatordan iborat bo'lishi mumkin.
+    Shu sabab «Matn» bir nechta qator va bo'sh qatorlardan iborat bo'la oladi.
     """
     collected: dict[str, list[str]] = {}
     current: Optional[str] = None
@@ -221,13 +201,12 @@ def parse_template(text: str) -> dict[str, str]:
             current = key
             collected.setdefault(key, []).append(match.group(2).strip())
         elif current:
-            collected[current].append(line.strip())
+            collected[current].append(line.rstrip())
 
     return {key: "\n".join(parts).strip() for key, parts in collected.items()}
 
 
 def looks_like_template(text: str) -> bool:
-    """Matnda kamida bitta tanilgan maydon bormi?"""
     return bool(parse_template(text))
 
 
@@ -235,24 +214,24 @@ def looks_like_template(text: str) -> bool:
 
 @dataclass
 class ParsedTZ:
-    brand: str
-    work_type: WorkType
-    fmt: str
-    copy_text: str
-    materials: str
-    reference: str
+    client: str
+    kind: Kind
+    tasnif: str
+    subject: str
     deadline: datetime
-    reason: str
+    designers: list[str]
+    body: str
     note: str
-    priority: str
-    lead_hours: float
+
+    @property
+    def lead_hours(self) -> float:
+        return 0.0
 
 
 MIN_LEAD_MINUTES = 15
 
 
 def validate(values: dict[str, str], now: datetime) -> tuple[Optional[ParsedTZ], list[str]]:
-    """Maydonlarni tekshiradi. Xatolik bo'lsa (None, xabarlar) qaytaradi."""
     errors: list[str] = []
     clean = {f.key: values.get(f.key, "").strip() for f in FIELDS}
 
@@ -260,10 +239,12 @@ def validate(values: dict[str, str], now: datetime) -> tuple[Optional[ParsedTZ],
         if f.required and (not clean[f.key] or is_empty(clean[f.key])):
             errors.append(f"{f.label} — to'ldirilmagan. Masalan: {f.example}")
 
-    work_type = parse_work_type(clean["work_type"]) if clean["work_type"] else None
-    if clean["work_type"] and work_type is None:
-        allowed = ", ".join(w.key for w in WORK_TYPES)
-        errors.append(f"Ish turi tushunarsiz: «{clean['work_type']}». Mumkin: {allowed}")
+    designers = parse_usernames(clean["designers"])
+    if clean["designers"] and not designers:
+        errors.append(
+            f"Dizayner @username ko'rinishida yozilishi kerak: «{clean['designers']}» "
+            "tushunarsiz. Masalan: @nickname"
+        )
 
     deadline: Optional[datetime] = None
     if clean["deadline"] and not is_empty(clean["deadline"]):
@@ -271,45 +252,30 @@ def validate(values: dict[str, str], now: datetime) -> tuple[Optional[ParsedTZ],
         if deadline is None:
             errors.append(
                 f"Deadline formati tushunarsiz: «{clean['deadline']}». "
-                "To'g'ri ko'rinish: 18-09 15:00, ertaga 12:30, bugun 18:00"
+                "To'g'ri ko'rinish: 20.09.2026 18:00, ertaga 15:00, bugun 18:00"
             )
         elif deadline < now + timedelta(minutes=MIN_LEAD_MINUTES):
             errors.append(
-                f"Deadline o'tib ketgan yoki juda yaqin: {deadline:%d.%m %H:%M}. "
+                f"Deadline o'tib ketgan yoki juda yaqin: {deadline:%d.%m.%Y %H:%M}. "
                 "Kamida 15 daqiqa keyingi vaqtni ko'rsating."
-            )
-
-    lead_hours = 0.0
-    priority = PRIORITY_NORMAL
-    if work_type and deadline and deadline > now:
-        lead_hours = (deadline - now).total_seconds() / 3600
-        priority = priority_for(work_type, lead_hours)
-        if priority == PRIORITY_URGENT and is_empty(clean["reason"]):
-            suggested = now + timedelta(hours=work_type.min_hours)
-            errors.append(
-                f"{work_type.label} uchun standart muddat — kamida {work_type.min_hours} soat, "
-                f"siz {format_hours(lead_hours)} berdingiz.\n"
-                f"Yo deadline'ni {suggested:%d.%m %H:%M} dan keyinga qo'ying, "
-                "yo «Sabab:» qatorida nega shoshilinch ekanini yozing."
             )
 
     if errors:
         return None, errors
 
-    assert work_type is not None and deadline is not None
+    assert deadline is not None
+    kind = parse_kind(clean["tasnif"])
+    note = "" if is_empty(clean["note"]) else clean["note"]
     return (
         ParsedTZ(
-            brand=clean["brand"],
-            work_type=work_type,
-            fmt=clean["fmt"],
-            copy_text=clean["copy_text"],
-            materials=clean["materials"],
-            reference=clean["reference"] or "yo'q",
+            client=clean["client"],
+            kind=kind,
+            tasnif=clean["tasnif"],
+            subject=clean["subject"],
             deadline=deadline,
-            reason=clean["reason"],
-            note=clean["note"],
-            priority=priority,
-            lead_hours=lead_hours,
+            designers=designers,
+            body=clean["body"],
+            note=note,
         ),
         [],
     )

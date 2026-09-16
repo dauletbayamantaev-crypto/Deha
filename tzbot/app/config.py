@@ -11,18 +11,10 @@ class Config:
     bot_token: str
     timezone: str
     db_path: str
-    team_name: str
-    wip_limit: int
-    designers: tuple[str, ...]  # @ belgisiz username'lar; bo'sh bo'lsa — cheklov yo'q
     digest_hour: int
     digest_minute: int
     reminder_lead_hours: int
-
-
-def _usernames(raw: str) -> tuple[str, ...]:
-    return tuple(
-        name.strip().lstrip("@").lower() for name in raw.split(",") if name.strip()
-    )
+    rush_hours: int  # hisobotda "shoshilinch" deb sanaladigan muddat chegarasi
 
 
 def load_config() -> Config:
@@ -36,10 +28,8 @@ def load_config() -> Config:
         bot_token=token,
         timezone=os.environ.get("TIMEZONE", "Asia/Tashkent"),
         db_path=os.environ.get("DB_PATH", "tasks.db"),
-        team_name=os.environ.get("TEAM_NAME", "Jamoa"),
-        wip_limit=int(os.environ.get("WIP_LIMIT", "2")),
-        designers=_usernames(os.environ.get("DESIGNER_USERNAMES", "")),
         digest_hour=int(os.environ.get("DIGEST_HOUR", "9")),
         digest_minute=int(os.environ.get("DIGEST_MINUTE", "30")),
         reminder_lead_hours=int(os.environ.get("REMINDER_LEAD_HOURS", "2")),
+        rush_hours=int(os.environ.get("RUSH_HOURS", "4")),
     )

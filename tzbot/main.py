@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
 )
 
-from app import handlers, scheduler, tasks
+from app import handlers, scheduler, store
 from app.config import load_config
 
 logging.basicConfig(
@@ -23,14 +23,12 @@ logger = logging.getLogger(__name__)
 
 COMMANDS = [
     BotCommand("tz", "Yangi TZ berish"),
-    BotCommand("shablon", "TZ shablonini olish"),
-    BotCommand("navbat", "Hozirgi navbat"),
-    BotCommand("boshladim", "TZ ni ishga olish (dizayner)"),
-    BotCommand("tayyor", "TZ ni yopish (dizayner)"),
-    BotCommand("mentz", "Mening ochiq TZ larim"),
+    BotCommand("navbat", "Ochiq TZ lar"),
+    BotCommand("tayyor", "TZ ni yopish — /tayyor ID_160926"),
     BotCommand("bekor", "TZ ni bekor qilish"),
+    BotCommand("shablon", "TZ shabloni"),
+    BotCommand("topik", "Topikni ro'yxatga olish"),
     BotCommand("hisobot", "7 kunlik statistika"),
-    BotCommand("qoida", "Ishlash qoidalari"),
     BotCommand("help", "Yordam"),
 ]
 
@@ -46,19 +44,28 @@ def _build_tz_conversation() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[CommandHandler("tz", handlers.tz_start)],
         states={
-            handlers.ASK_BRAND: [MessageHandler(text_only, handlers.ask_brand)],
-            handlers.ASK_TYPE: [CallbackQueryHandler(handlers.ask_type, pattern=r"^wt:")],
-            handlers.ASK_FORMAT: [CallbackQueryHandler(handlers.ask_format, pattern=r"^fmt:")],
-            handlers.ASK_FORMAT_CUSTOM: [
-                MessageHandler(text_only, handlers.ask_format_custom)
+            handlers.ASK_GROUP: [
+                CallbackQueryHandler(handlers.ask_group, pattern=r"^grp:")
             ],
-            handlers.ASK_COPY: [MessageHandler(text_only, handlers.ask_copy)],
-            handlers.ASK_MATERIALS: [MessageHandler(text_only, handlers.ask_materials)],
-            handlers.ASK_REFERENCE: [MessageHandler(text_only, handlers.ask_reference)],
-            handlers.ASK_DEADLINE: [MessageHandler(text_only, handlers.ask_deadline)],
-            handlers.ASK_REASON: [MessageHandler(text_only, handlers.ask_reason)],
+            handlers.ASK_TOPIC: [
+                CallbackQueryHandler(handlers.ask_topic, pattern=r"^top:")
+            ],
+            handlers.ASK_CLIENT: [MessageHandler(text_only, handlers.ask_client)],
+            handlers.ASK_KIND: [CallbackQueryHandler(handlers.ask_kind, pattern=r"^kind:")],
+            handlers.ASK_KIND_CUSTOM: [MessageHandler(text_only, handlers.ask_kind_custom)],
+            handlers.ASK_SUBJECT: [MessageHandler(text_only, handlers.ask_subject)],
+            handlers.ASK_DEADLINE: [
+                CallbackQueryHandler(handlers.ask_deadline_button, pattern=r"^dl:"),
+                MessageHandler(text_only, handlers.ask_deadline_text),
+            ],
+            handlers.ASK_DESIGNERS: [MessageHandler(text_only, handlers.ask_designers)],
+            handlers.ASK_BODY: [MessageHandler(text_only, handlers.ask_body)],
+            handlers.ASK_NOTE: [
+                CallbackQueryHandler(handlers.ask_note_button, pattern=r"^note:"),
+                MessageHandler(text_only, handlers.ask_note_text),
+            ],
         },
-        fallbacks=[CommandHandler("cancel", handlers.cancel)],
+        fallbacks=[CommandHandler("cancel", handlers.cancel_conversation)],
     )
 
 
@@ -68,20 +75,21 @@ def main() -> None:
     application = (
         Application.builder().token(config.bot_token).post_init(_post_init).build()
     )
-    application.bot_data["db"] = tasks.connect(config.db_path)
+    application.bot_data["db"] = store.connect(config.db_path)
     application.bot_data["config"] = config
     application.bot_data["tz"] = ZoneInfo(config.timezone)
 
+    # -1 guruhdagi handler har bir xabarda ishlaydi va asosiy handlerlarga xalaqit bermaydi
+    application.add_handler(MessageHandler(filters.ALL, handlers.remember), group=-1)
+
     application.add_handler(CommandHandler("start", handlers.start))
-    application.add_handler(CommandHandler("help", handlers.help_command))
-    application.add_handler(CommandHandler("qoida", handlers.rules))
+    application.add_handler(CommandHandler("help", handlers.start))
     application.add_handler(CommandHandler("shablon", handlers.template))
     application.add_handler(_build_tz_conversation())
     application.add_handler(CommandHandler("navbat", handlers.queue_command))
-    application.add_handler(CommandHandler("mentz", handlers.my_tz))
-    application.add_handler(CommandHandler("boshladim", handlers.take_task))
     application.add_handler(CommandHandler("tayyor", handlers.finish_task))
     application.add_handler(CommandHandler("bekor", handlers.cancel_task))
+    application.add_handler(CommandHandler("topik", handlers.topic_command))
     application.add_handler(CommandHandler("hisobot", handlers.report))
 
     tz = ZoneInfo(config.timezone)
@@ -103,11 +111,10 @@ def main() -> None:
     )
 
     logger.info(
-        "TZ bot ishga tushdi. Kunlik xulosa %02d:%02d (%s), WIP limit: %d.",
+        "TZ bot ishga tushdi. Kunlik xulosa %02d:%02d (%s).",
         config.digest_hour,
         config.digest_minute,
         config.timezone,
-        config.wip_limit,
     )
     application.run_polling(allowed_updates=["message", "callback_query"])
 

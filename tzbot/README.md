@@ -1,135 +1,222 @@
-# TZ va navbat boti
+# TZ boti
 
-SMM ↔ dizayn jarayonidagi uchta muammoni hal qiladi:
+SMM menejer botga TZ beradi — bot uni to'liqligini tekshiradi, kerakli topikka
+yuboradi va mas'ul dizaynerga shaxsiy bildirishnoma jo'natadi.
 
-| Muammo | Bot yechimi |
+Bot **shaxsiy chatda ham, guruhda ham** bir xil ishlaydi.
+
+## Bot guruhga shunday yuboradi
+
+```
+ID_160926
+TZ (Texnik topshiriq) @smm_aziz tomonidan berildi.
+Mijoz: Xazna
+Tasnif: Xazna uchun karusel post
+Mavzu: Xalqaro o'tkazmalar xazna ilovasidan amalga oshirish qo'llanmasi
+Deadline: 20.09.2026 18:00
+Dizayner: @dilnoza
+
+1. Page
+Lorem ipsum
+
+2. Page
+Lorem ipsum
+
+Izoh: logotip oq bo'lsin
+
+#xazna #karusel
+
+Tayyor bo'lgach: /tayyor ID_160926
+```
+
+`ID_160926` — kun bo'yicha raqam (16.09.26). O'sha kuni ikkinchi TZ berilsa
+`ID_160926-2` bo'ladi. Hashtaglar mijoz nomi va ish turidan avtomatik yig'iladi.
+
+---
+
+# O'rnatish — qadamma-qadam
+
+Tug'ilgan kunlar botini o'rnatgan bo'lsangiz, bu ham xuddi shunday. Farqi —
+**alohida token** va **alohida papka**.
+
+## 1-qadam. Yangi bot yarating
+
+1. Telegramda [@BotFather](https://t.me/BotFather) ni oching.
+2. `/newbot` yozing.
+3. Bot nomini yozing, masalan: `Deha TZ`.
+4. Bot username'ini yozing, `bot` bilan tugashi shart: `deha_tz_bot`.
+5. BotFather uzun token beradi — `123456:AAF...` ko'rinishida. **Nusxa oling.**
+6. Shu yerda `/mybots` → botni tanlang → `Bot Settings` → `Group Privacy` →
+   **Turn off**. Bu shart, aks holda bot guruhda buyruqlarni ko'rmaydi.
+
+## 2-qadam. Faylni kompyuterga/serverga oling
+
+```bash
+git clone https://github.com/dauletbayamantaev-crypto/Deha.git
+cd Deha/tzbot
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## 3-qadam. Tokenni qo'ying
+
+```bash
+cp .env.example .env
+```
+
+`.env` faylini oching va faqat bitta qatorni o'zgartiring:
+
+```
+BOT_TOKEN=bu_yerga_botfather_bergan_tokenni_qo'ying
+```
+
+Qolganini tegmasangiz ham bo'ladi.
+
+## 4-qadam. Botni ishga tushiring
+
+```bash
+python main.py
+```
+
+Terminalda `TZ bot ishga tushdi` degan yozuv chiqsa — tayyor. Bu oyna ochiq
+turishi kerak; yopsangiz bot o'chadi (doimiy ishlashi uchun pastdagi
+"systemd" bo'limiga qarang).
+
+## 5-qadam. Botni guruhga qo'shing
+
+Guruh → Add members → bot username'ini yozing → qo'shing.
+So'ng guruhda bir marta `/start` yozing — bot guruhni eslab qoladi.
+
+## 6-qadam. Topiklarni ro'yxatga oling
+
+Bot Telegram'dan topiklar ro'yxatini o'zi ola olmaydi — bir marta ko'rsatish kerak.
+
+Har bir topikka kiring va ichida yozing:
+
+```
+/topik Xazna
+```
+
+Boshqa topikda `/topik Artel`, yana boshqasida `/topik Umumiy dizayn` va hokazo.
+Ro'yxatni ko'rish uchun topikdan tashqarida `/topik` yozing.
+
+## 7-qadam. Dizaynerlar botga /start bossin ⚠️
+
+**Eng muhim qadam.** Telegram qoidasiga ko'ra bot faqat o'ziga bir marta yozgan
+odamga shaxsiy xabar yubora oladi.
+
+Har bir dizayner botni shaxsiy chatda ochib, `/start` bosishi kerak.
+Aks holda TZ guruhga tushadi, lekin shaxsiy bildirishnoma bormaydi — bot
+bu haqda SMM menejerga ogohlantirish beradi.
+
+---
+
+# Ishlatish
+
+## TZ berish
+
+Shaxsiy chatda yoki guruhda `/tz` yozing. Bot ketma-ket so'raydi:
+
+| Savol | Javob |
 |---|---|
-| TZ to'liq bo'lmaydi | Bot brend, ish turi, format, matn, materiallar va deadline'siz TZ ni **qabul qilmaydi** — nima yetishmayotganini aytib qaytaradi |
-| Deadline berilmaydi | Deadline majburiy maydon. Har bir ish turi uchun minimal muddat bor; undan qisqa muddat berilsa bot **sabab** so'raydi |
-| Navbatga rioya qilinmaydi | Navbat avtomatik — deadline bo'yicha. Hamma uchun `/navbat` da ochiq. Dizayner bir vaqtda faqat `WIP_LIMIT` ta ishni boshlaydi |
+| Qaysi guruh / topik? | Tugmadan tanlanadi (topik ichida yozsangiz — so'ramaydi) |
+| Mijoz kim? | `Xazna` |
+| Tasnif? | Tugmalar: Karusel post / Feed post / Story / Reels / Banner / Boshqa |
+| Mavzu? | `Xalqaro o'tkazmalar qo'llanmasi` |
+| Deadline? | Tugma (Bugun 18:00 / Ertaga 12:00 / Ertaga 18:00) yoki `20.09.2026 18:00` |
+| Dizayner kim? | `@dilnoza` — bir nechta bo'lsa `@dilnoza @ali` |
+| TZ matni? | Hammasi **bitta xabarda**: `1. Page` … `2. Page` … |
+| Izoh? | Yozasiz yoki "⏭ Izohsiz" tugmasini bosasiz |
 
-Bot tug'ilgan kunlar botidan **alohida** ishlaydi: o'z tokeni, o'z bazasi,
-o'z jarayoni. Ikkalasini bitta guruhga qo'shsa ham bo'ladi.
+Bekor qilish — `/cancel`.
 
-## Buyruqlar
+## Tezroq usul — bitta xabarda
 
-Barcha buyruqlar (`/start`, `/help`, `/qoida`, `/shablon` dan tashqari) faqat guruhda ishlaydi.
-
-| Buyruq | Kim uchun | Tavsif |
-|---|---|---|
-| `/tz` | SMM | Yangi TZ. Bo'sh yuborilsa — savol-javob tartibi; shablon bilan yuborilsa — bir xabarda |
-| `/shablon` | SMM | Nusxa olib to'ldiriladigan shablon |
-| `/mentz` | SMM | O'zining ochiq TZ lari |
-| `/navbat` | Hamma | Hozirgi navbat, deadline bo'yicha tartiblangan |
-| `/boshladim 12` | Dizayner | 12-TZ ni ishga olish |
-| `/tayyor 12` | Dizayner | 12-TZ ni yopish (kechikkan-kechikmagani hisoblanadi) |
-| `/bekor 12` | Muallif yoki dizayner | TZ ni bekor qilish |
-| `/hisobot` | Hamma | So'nggi 7 kun statistikasi |
-| `/qoida` | Hamma | Jamoa uchun ish qoidalari |
-
-## TZ qanday beriladi
-
-**1-usul — bir xabarda.** `/shablon` dan nusxa oling, to'ldiring va yuboring:
+`/shablon` yozing, bot shablon beradi. Nusxalab to'ldiring va yuboring:
 
 ```
 /tz
-Brend: Nestle
-Ish turi: karusel
-Format: 1080x1350
-Matn: Sarlavha: Kuzgi chegirma -30%
-CTA: Buyurtma bering
-Materiallar: https://drive.google.com/...
-Referens: https://pin.it/...
-Deadline: 18-09 15:00
+Mijoz: Xazna
+Tasnif: Xazna uchun karusel post
+Mavzu: Xalqaro o'tkazmalar qo'llanmasi
+Deadline: 20.09.2026 18:00
+Dizayner: @dilnoza
+Matn:
+1. Page
+Lorem ipsum
+
+2. Page
+Lorem ipsum
 Izoh: logotip oq bo'lsin
 ```
 
-Maydon nomlari moslashuvchan: `Mijoz`, `Muddat`, `O'lcham`, `Material` kabi
-sinonimlar ham tushuniladi. `Matn` bir nechta qatordan iborat bo'lishi mumkin —
-keyingi tanilgan maydongacha hammasi matn hisoblanadi.
+Maydon nomlari moslashuvchan: `Brend`, `Muddat`, `Mas'ul`, `TZ` kabi sinonimlar
+ham tushuniladi. Biror maydon to'ldirilmasa yoki `yo'q`, `tezroq`, `keyin` deb
+yozilsa — bot TZ ni qabul qilmaydi va nima yetishmayotganini aytadi.
 
-**2-usul — savol-javob.** Shunchaki `/tz` yozing, bot bosqichma-bosqich so'raydi.
-Ish turi va format tugmalar orqali tanlanadi. `/cancel` — bekor qilish.
+## Buyruqlar
 
-Ikkala usulda ham `yo'q`, `keyin`, `tezroq`, `odatdagidek` kabi javoblar
-to'ldirilgan hisoblanmaydi va TZ qaytariladi.
+| Buyruq | Kim uchun | Tavsif |
+|---|---|---|
+| `/tz` | SMM | Yangi TZ |
+| `/shablon` | SMM | Shablonni olish |
+| `/tayyor ID_160926` | Dizayner | TZ ni yopish |
+| `/bekor ID_160926` | Muallif yoki dizayner | TZ ni bekor qilish |
+| `/navbat` | Hamma | Ochiq TZ lar (shaxsiyda — faqat o'ziniki) |
+| `/hisobot` | Hamma | So'nggi 7 kun statistikasi |
+| `/topik Nomi` | Hamma | Topikni ro'yxatga olish |
+| `/help` | Hamma | Yordam |
 
-## Minimal muddatlar va prioritet
+## Bot o'zi nima qiladi
 
-Prioritetni TZ beruvchi emas, **muddat** belgilaydi:
+- Deadline'ga 2 soat qolganda — guruhga va dizaynerga eslatma.
+- Deadline o'tib ketsa — yana eslatma.
+- Har kuni 09:30 da — o'sha kungi ochiq TZ lar ro'yxati.
+- Har dushanba 09:30 da — hafta hisoboti: kim nechta TZ berdi, nechtasi
+  4 soatdan kam muddat bilan berilgan, qaysi dizayner nechtasini bajardi.
 
-| Ish turi | Minimal muddat |
-|---|---|
-| Post / story maketi | 3 soat |
-| Karusel (2+ slayd) | 6 soat |
-| Reels / video montaj | 24 soat |
-| Banner / print maketi | 24 soat |
-| Logo / brending | 72 soat |
-| Boshqa | 4 soat |
+---
 
-- Muddat minimaldan qisqa → **🔥 Shoshilinch**, bot sabab so'raydi va sabab
-  TZ kartasida hamda haftalik hisobotda ko'rinadi.
-- 24 soatdan kam → 🟡 Oddiy.
-- 24 soatdan ko'p → 🟢 Rejali.
-
-Shu tarzda "hammasi shoshilinch" holati yo'qoladi: shoshilinch deb belgilashning
-narxi — ochiq yoziladigan sabab.
-
-## Avtomatik eslatmalar
-
-- Har 30 daqiqada: deadline'ga `REMINDER_LEAD_HOURS` soat qolgan, lekin hali
-  boshlanmagan ishlar; deadline'i o'tib ketgan ishlar.
-- Har kuni `DIGEST_HOUR:DIGEST_MINUTE` da: o'sha kungi navbat.
-- Har dushanba shu vaqtda: o'tgan hafta hisoboti — kim nechta TZ berdi,
-  nechtasi shoshilinch edi, o'rtacha qancha muddat berilgan.
-
-## O'rnatish
-
-1. [@BotFather](https://t.me/BotFather) da **yangi** bot yarating va tokenni oling.
-2. Virtual muhit tayyorlang:
-
-   ```bash
-   cd tzbot
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-3. Sozlamalarni kiriting:
-
-   ```bash
-   cp .env.example .env
-   # .env ni oching, BOT_TOKEN va DESIGNER_USERNAMES ni to'ldiring
-   ```
-
-4. Botni ish guruhiga qo'shing. BotFather → Bot Settings → Group Privacy →
-   **Turn off** (aks holda bot guruhdagi buyruqlarni ko'rmaydi).
-5. Ishga tushiring:
-
-   ```bash
-   python main.py
-   ```
-
-## Konfiguratsiya (.env)
+# Sozlamalar (.env)
 
 | O'zgaruvchi | Tavsif | Standart |
 |---|---|---|
 | `BOT_TOKEN` | BotFather tokeni (majburiy) | — |
-| `TIMEZONE` | Deadline va eslatmalar vaqt mintaqasi | `Asia/Tashkent` |
-| `DB_PATH` | SQLite bazasi | `tasks.db` |
-| `TEAM_NAME` | Jamoa nomi | `Jamoa` |
-| `WIP_LIMIT` | Dizayner bir vaqtda nechta ish boshlay oladi | `2` |
-| `DESIGNER_USERNAMES` | Dizaynerlar username'i, vergul bilan. Bo'sh — cheklov yo'q | bo'sh |
+| `TIMEZONE` | Vaqt mintaqasi | `Asia/Tashkent` |
+| `DB_PATH` | Ma'lumotlar fayli | `tasks.db` |
 | `DIGEST_HOUR` / `DIGEST_MINUTE` | Kunlik xulosa vaqti | `9` / `30` |
 | `REMINDER_LEAD_HOURS` | Deadline'ga necha soat qolganda eslatilsin | `2` |
+| `RUSH_HOURS` | Hisobotda "shoshilinch" deb sanaladigan muddat | `4` |
 
-## VPS'da doimiy ishlatish (systemd)
+# Nimani qayerdan o'zgartirasiz
 
-`/etc/systemd/system/tz-bot.service`:
+Dasturchi bo'lmasangiz ham bu joylarni o'zgartirish oson — fayl ochib,
+kerakli qatorni almashtirasiz va botni qayta ishga tushirasiz.
+
+| Nimani | Qaysi fayl | Nimani qidirasiz |
+|---|---|---|
+| Ish turlari va hashtaglar | `app/tzform.py` | `KINDS = (` |
+| Guruhga chiqadigan xabar ko'rinishi | `app/render.py` | `def render_task` |
+| Bot so'raydigan savollar matni | `app/tzform.py` | `FIELDS = (` |
+| Deadline tugmalari (Bugun 18:00 ...) | `app/handlers.py` | `_deadline_keyboard` |
+| "yo'q", "tezroq" kabi rad etiladigan javoblar | `app/tzform.py` | `_EMPTY_VALUES` |
+| Eslatma va hisobot vaqtlari | `.env` | `DIGEST_HOUR` |
+
+O'zgartirgandan keyin:
+
+```bash
+python tests/smoke.py   # hammasi joyidami — tekshiradi
+python main.py          # qayta ishga tushiradi
+```
+
+# Doimiy ishlashi uchun (VPS, systemd)
+
+`/etc/systemd/system/tz-bot.service` faylini yarating:
 
 ```ini
 [Unit]
-Description=Telegram TZ & Queue Bot
+Description=Telegram TZ Bot
 After=network.target
 
 [Service]
@@ -146,15 +233,17 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now tz-bot
+sudo systemctl status tz-bot
 ```
 
-## Sinash
+# Sinash
 
-Telegram'siz, soxta Update obyektlari bilan:
+Telegramsiz, soxta xabarlar bilan butun bot tekshiriladi:
 
 ```bash
 cd tzbot
 python tests/smoke.py
 ```
 
-Hamma buyruq, tekshiruv va navbat mantig'i sinaladi.
+62 ta tekshiruv: topik tanlash, bildirishnoma, to'liqsiz TZ ni rad etish,
+deadline hisobi, eslatmalar, hisobot.
