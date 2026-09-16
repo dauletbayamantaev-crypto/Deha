@@ -3,6 +3,7 @@ import logging
 from zoneinfo import ZoneInfo
 
 from telegram import BotCommand
+from telegram.error import InvalidToken, NetworkError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -33,6 +34,16 @@ COMMANDS = [
 ]
 
 REMINDER_INTERVAL_SECONDS = 30 * 60
+
+
+def _fail(*lines: str) -> None:
+    """Xatoni dasturchi bo'lmagan odam tushunadigan ko'rinishda chiqaradi."""
+    print("\n" + "─" * 50)
+    print("❌ " + lines[0])
+    for line in lines[1:]:
+        print("   " + line)
+    print("─" * 50 + "\n")
+    raise SystemExit(1)
 
 
 async def _post_init(application: Application) -> None:
@@ -116,7 +127,22 @@ def main() -> None:
         config.digest_minute,
         config.timezone,
     )
-    application.run_polling(allowed_updates=["message", "callback_query"])
+    try:
+        application.run_polling(allowed_updates=["message", "callback_query"])
+    except InvalidToken:
+        _fail(
+            "Token noto'g'ri.",
+            ".env faylini oching va BOT_TOKEN qiymatini tekshiring.",
+            "Yangi token olish: Telegramda @BotFather -> /mybots -> API Token.",
+        )
+    except NetworkError as error:
+        _fail(
+            "Telegram bilan bog'lanib bo'lmadi.",
+            "Internetingizni tekshiring. Telegram bloklangan bo'lsa VPN yoqing.",
+            f"Texnik tafsilot: {error}",
+        )
+    except KeyboardInterrupt:
+        logger.info("Bot to'xtatildi.")
 
 
 if __name__ == "__main__":

@@ -49,39 +49,55 @@ Tug'ilgan kunlar botini o'rnatgan bo'lsangiz, bu ham xuddi shunday. Farqi —
 6. Shu yerda `/mybots` → botni tanlang → `Bot Settings` → `Group Privacy` →
    **Turn off**. Bu shart, aks holda bot guruhda buyruqlarni ko'rmaydi.
 
-## 2-qadam. Faylni kompyuterga/serverga oling
+## 2-qadam. Loyihani yuklab oling
+
+Terminal (Mac) yoki PowerShell (Windows) da:
 
 ```bash
 git clone https://github.com/dauletbayamantaev-crypto/Deha.git
 cd Deha/tzbot
+```
+
+## 3-qadam. Ishga tushiring — bitta buyruq
+
+**Mac / Linux:**
+
+```bash
+bash ishga_tushir.sh
+```
+
+**Windows:** `Deha\tzbot` papkasini oching va `ishga_tushir.bat` faylini ikki marta bosing.
+
+Birinchi safar skript hammasini o'zi qiladi: muhit tayyorlaydi, kutubxonalarni
+o'rnatadi (1-2 daqiqa) va tokenni so'raydi. BotFather bergan tokenni qo'ying va
+Enter bosing.
+
+> Token yozganingizda ekranda hech narsa ko'rinmaydi — bu xavfsizlik uchun,
+> normal holat. Yozib Enter bosavering.
+
+Terminalda `TZ bot ishga tushdi` chiqsa — tayyor.
+**Bu oyna ochiq tursin**, yopsangiz bot o'chadi. To'xtatish: `Ctrl+C`.
+
+Keyingi safar shunchaki yana o'sha faylni ishga tushirasiz — token so'ralmaydi.
+
+<details>
+<summary>Qo'lda o'rnatish (skriptsiz)</summary>
+
+```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-## 3-qadam. Tokenni qo'ying
-
-```bash
-cp .env.example .env
-```
-
-`.env` faylini oching va faqat bitta qatorni o'zgartiring:
-
-```
-BOT_TOKEN=bu_yerga_botfather_bergan_tokenni_qo'ying
-```
-
-Qolganini tegmasangiz ham bo'ladi.
-
-## 4-qadam. Botni ishga tushiring
-
-```bash
+cp .env.example .env               # Windows: copy .env.example .env
+# .env faylini oching va BOT_TOKEN qiymatini yozing
 python main.py
 ```
+</details>
 
-Terminalda `TZ bot ishga tushdi` degan yozuv chiqsa — tayyor. Bu oyna ochiq
-turishi kerak; yopsangiz bot o'chadi (doimiy ishlashi uchun pastdagi
-"systemd" bo'limiga qarang).
+## 4-qadam. Tokenni hech kimga bermang
+
+Token — botning kaliti. U `.env` faylida turadi va git'ga **hech qachon
+tushmaydi** (`.gitignore` da yozilgan). Agar tokeni biror joyga (chat, skrinshot,
+xabar) yuborib qo'ysangiz — BotFather'da `/revoke` qiling va yangi token oling.
 
 ## 5-qadam. Botni guruhga qo'shing
 
@@ -210,7 +226,17 @@ python tests/smoke.py   # hammasi joyidami — tekshiradi
 python main.py          # qayta ishga tushiradi
 ```
 
-# Doimiy ishlashi uchun (VPS, systemd)
+# Doimiy ishlashi uchun
+
+Bot siz uni ishga tushirgan kompyuterda ishlaydi. Ya'ni:
+
+- **Sinov uchun** — o'z kompyuteringizda ishga tushiring, terminal oynasi ochiq tursin.
+- **Jamoa uchun doimiy** — bot 24/7 ishlashi kerak. Ikki yo'l bor:
+  1. Agentlikda doim yoqiq turadigan kompyuter (uyqu rejimi o'chirilgan bo'lsin).
+  2. Arzon VPS (oyiga ~5$). Bunda pastdagi systemd sozlamasi bilan bot
+     server qayta yuklansa ham o'zi ishga tushadi.
+
+## VPS (systemd)
 
 `/etc/systemd/system/tz-bot.service` faylini yarating:
 
