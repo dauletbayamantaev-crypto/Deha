@@ -598,7 +598,6 @@
 
   function renderPNG(longSide, withShadow) {
     const gl = renderer.getContext();
-    const maxDim = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_VIEWPORT_DIMS)[0], 8192);
     const w0 = stage.clientWidth, h0 = stage.clientHeight;
     const saved = { ground: ground.visible, contact: contact.visible, g: groundMat.opacity, c: contactMat.opacity };
     ground.visible = contact.visible = withShadow;
@@ -636,23 +635,42 @@
       const pad = 0.04 * Math.max(right - left, bottom - top) + Math.max(sx, sy);
       left -= pad; right += pad; top -= pad; bottom += pad;
 
-      // Pass 2: render only that box at full size, supersampled 2x when it fits.
-      const bw = right - left, bh = bottom - top;
+      // Pass 2: render that box tile by tile. Browsers quietly shrink a WebGL
+      // canvas that is too large, which would crop the picture, so each tile
+      // stays small (512 px, drawn at 2x and scaled down for smooth edges).
+      let bw = right - left, bh = bottom - top;
       const outW = bw >= bh ? longSide : Math.round((longSide * bw) / bh);
       const outH = bw >= bh ? Math.round((longSide * bh) / bw) : longSide;
-      const ss = Math.min(2, maxDim / Math.max(outW, outH));
-      renderer.setSize(Math.round(outW * ss), Math.round(outH * ss), false);
-      camera.setViewOffset(w0, h0, left, top, bw, bh);
-      renderer.render(scene, camera);
+      const k = Math.max(bw / outW, bh / outH); // screen units per output pixel
+      const cx = (left + right) / 2, cy = (top + bottom) / 2;
+      bw = outW * k;
+      bh = outH * k;
+      left = cx - bw / 2;
+      top = cy - bh / 2;
+
       const out = document.createElement("canvas");
       out.width = outW;
       out.height = outH;
       const ctx = out.getContext("2d");
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(renderer.domElement, 0, 0, outW, outH);
+      const TILE = 512, SS = 2;
+      for (let ty = 0; ty < outH; ty += TILE) {
+        for (let tx = 0; tx < outW; tx += TILE) {
+          const w = Math.min(TILE, outW - tx), h = Math.min(TILE, outH - ty);
+          renderer.setSize(w * SS, h * SS, false);
+          if (gl.drawingBufferWidth !== w * SS || gl.drawingBufferHeight !== h * SS) {
+            throw Object.assign(new Error("drawing buffer too small"), { code: "render_limit" });
+          }
+          camera.setViewOffset(w0, h0, left + tx * k, top + ty * k, w * k, h * k);
+          renderer.render(scene, camera);
+          renderer.shadowMap.autoUpdate = false; // the scene is still, so reuse the first tile's shadow map
+          ctx.drawImage(renderer.domElement, 0, 0, w * SS, h * SS, tx, ty, w, h);
+        }
+      }
       return out;
     } finally {
+      renderer.shadowMap.autoUpdate = true;
       camera.clearViewOffset();
       ground.visible = saved.ground;
       contact.visible = saved.contact;
@@ -678,6 +696,7 @@
         return;
       }
       const blob = await new Promise((resolve) => png.toBlob(resolve, "image/png"));
+      if (!blob) throw Object.assign(new Error("PNG encoding failed"), { code: "render_limit" });
       const filename = `logo-3d-${png.width}x${png.height}.png`;
       if (saveLocally) {
         const a = document.createElement("a");
@@ -695,6 +714,7 @@
       if (code === "declined") say("Yuklab olish bekor qilindi.");
       else if (code === "rate_limited") say("Saqlash oynasi allaqachon ochiq. Uni yoping va qayta bosing.");
       else if (code === "too_large") say("Fayl juda katta chiqdi. Kichikroq o'lchamni tanlang.");
+      else if (code === "render_limit") say("Bu qurilma shu o'lchamdagi rasmni chiza olmadi. Kichikroq o'lchamni tanlang.");
       else {
         say("Bu yerda fayl yuklab olib bo'lmaydi.");
         exportGroup.hidden = true;
