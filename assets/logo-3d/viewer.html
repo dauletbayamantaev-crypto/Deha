@@ -1,0 +1,484 @@
+<title>Yashil yarim doira 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #edf1ee;
+    --glow: #ffffff;
+    --ink: #17231e;
+    --muted: #5b6b64;
+    --line: #d2dbd6;
+    --chip: rgba(255, 255, 255, 0.72);
+    --chip-on: #17231e;
+    --chip-on-ink: #f4f7f5;
+    --brand: #3f6d5b;
+    --accent: #3f6d5b;
+    --shadow-alpha: 0.2;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #121815;
+      --glow: #1f2a25;
+      --ink: #e4ece8;
+      --muted: #93a39b;
+      --line: #2a3530;
+      --chip: rgba(24, 32, 28, 0.78);
+      --chip-on: #e4ece8;
+      --chip-on-ink: #121815;
+      --accent: #86b8a3;
+      --shadow-alpha: 0.5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #121815;
+    --glow: #1f2a25;
+    --ink: #e4ece8;
+    --muted: #93a39b;
+    --line: #2a3530;
+    --chip: rgba(24, 32, 28, 0.78);
+    --chip-on: #e4ece8;
+    --chip-on-ink: #121815;
+    --accent: #86b8a3;
+    --shadow-alpha: 0.5;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--display);
+    overflow: hidden;
+  }
+  .stage {
+    position: relative;
+    height: 100%;
+    min-height: 460px;
+    background: radial-gradient(ellipse 60% 55% at 50% 58%, var(--glow), var(--ground) 72%);
+  }
+  #scene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: none;
+  }
+  #scene:active { cursor: grabbing; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto 1fr auto;
+    gap: 16px;
+    padding: 28px 32px;
+  }
+  .overlay > * { pointer-events: auto; }
+
+  .info { max-width: 30ch; display: grid; gap: 6px; align-content: start; }
+  .eyebrow {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(26px, 3.4vw, 40px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .hint { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+
+  .specs {
+    margin: 0;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .specs div { display: grid; grid-template-columns: 7.5em auto; align-items: baseline; }
+  .specs dt { color: var(--muted); }
+  .specs dd { margin: 0; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: var(--brand); }
+
+  .controls {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .seg {
+    display: flex;
+    padding: 4px;
+    gap: 2px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--chip);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .controls button {
+    font: 500 13px/1 var(--display);
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 16px;
+    cursor: pointer;
+  }
+  .controls button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .controls button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
+  .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .fallback[hidden] { display: none; }
+
+  @media (max-width: 640px) {
+    .overlay { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; padding: 20px 16px; }
+    .specs { grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 11px; }
+    .specs div { grid-template-columns: 1fr; gap: 2px; }
+    .controls { grid-row: 4; }
+  }
+</style>
+
+<main class="stage">
+  <canvas id="scene" aria-label="Yashil yarim doira logosining aylantirsa bo'ladigan 3D modeli"></canvas>
+  <div class="overlay">
+    <header class="info">
+      <p class="eyebrow">Logo · 3D model</p>
+      <h1>Yashil yarim doira</h1>
+      <p class="hint">Sichqoncha yoki barmoq bilan aylantiring, g'ildirak yoki ikki barmoq bilan yaqinlashtiring.</p>
+    </header>
+    <dl class="specs">
+      <div><dt>Rang</dt><dd><span class="swatch" aria-hidden="true"></span>#3F6D5B</dd></div>
+      <div><dt>Nisbat</dt><dd>2 : 1</dd></div>
+      <div><dt>O'lcham</dt><dd>100 × 50 × 16 mm</dd></div>
+      <div><dt>Qirra</dt><dd>R 2 mm yumaloq</dd></div>
+    </dl>
+    <nav class="controls" aria-label="Ko'rinish">
+      <div class="seg" role="group" aria-label="Kamera burchagi">
+        <button type="button" id="view-three" data-view="three" aria-pressed="true">3/4</button>
+        <button type="button" id="view-front" data-view="front" aria-pressed="false">Old</button>
+        <button type="button" id="view-side" data-view="side" aria-pressed="false">Yon</button>
+      </div>
+      <div class="seg">
+        <button type="button" id="spin" aria-pressed="true">Aylanish</button>
+      </div>
+    </nav>
+  </div>
+  <p class="fallback" id="fallback" hidden>Bu brauzerda WebGL o'chirilgan, shuning uchun 3D modelni ko'rsatib bo'lmadi.</p>
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+  const canvas = document.getElementById("scene");
+  const stage = canvas.parentElement;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  } catch (err) {
+    document.getElementById("fallback").hidden = false;
+    throw err;
+  }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.75;
+
+  // Logo geometry: a half-disc of radius 1 standing on its flat edge, with every
+  // edge rounded over. 1 unit = 50 mm, so the piece is 100 × 50 × 16 mm.
+  // Built as an inner half-disc swept by a round profile (a Minkowski sum), so the
+  // outer silhouette is exactly the logo and every normal is analytic.
+  function buildLogoGeometry({ radius = 0.04, halfWall = 0.12, arcSteps = 288, cornerSteps = 18, roundSteps = 14 } = {}) {
+    const inner = 1 - radius;
+    const t0 = Math.asin(radius / inner);
+    const cornerX = inner * Math.cos(t0);
+    const contour = []; // { x, y, a }: inner-outline point and outward normal angle, CCW
+    for (let k = 0; k <= arcSteps; k++) {
+      const a = t0 + ((Math.PI - 2 * t0) * k) / arcSteps;
+      contour.push({ x: inner * Math.cos(a), y: inner * Math.sin(a), a });
+    }
+    for (let k = 1; k <= cornerSteps; k++) {
+      contour.push({ x: -cornerX, y: radius, a: Math.PI - t0 + ((Math.PI / 2 + t0) * k) / cornerSteps });
+    }
+    for (let k = 0; k < cornerSteps; k++) {
+      contour.push({ x: cornerX, y: radius, a: 1.5 * Math.PI + ((Math.PI / 2 + t0) * k) / cornerSteps });
+    }
+
+    const profile = []; // { phi, z }: front round-over, straight wall, back round-over
+    for (let i = 0; i <= roundSteps; i++) profile.push({ phi: (Math.PI / 2) * (1 - i / roundSteps), z: halfWall });
+    for (let i = 0; i <= roundSteps; i++) profile.push({ phi: (-Math.PI / 2) * (i / roundSteps), z: -halfWall });
+
+    const pos = [], nrm = [], idx = [];
+    const cols = contour.length;
+    for (const { phi, z } of profile) {
+      const c = Math.cos(phi), s = Math.sin(phi);
+      for (const p of contour) {
+        const nx = Math.cos(p.a), ny = Math.sin(p.a);
+        pos.push(p.x + radius * c * nx, p.y + radius * c * ny, z + radius * s);
+        nrm.push(c * nx, c * ny, s);
+      }
+    }
+    for (let i = 0; i < profile.length - 1; i++) {
+      for (let j = 0; j < cols; j++) {
+        const a = i * cols + j, b = i * cols + ((j + 1) % cols);
+        const d = a + cols, c = b + cols;
+        idx.push(a, d, c, a, c, b);
+      }
+    }
+
+    // Flat front and back faces: fan over the distinct inner-outline points.
+    const ring = contour.filter((p, i) => i === 0 || p.x !== contour[i - 1].x || p.y !== contour[i - 1].y);
+    for (const side of [1, -1]) {
+      const zc = side * (halfWall + radius);
+      const center = pos.length / 3;
+      pos.push(0, 0.45, zc);
+      nrm.push(0, 0, side);
+      const start = pos.length / 3;
+      for (const p of ring) {
+        pos.push(p.x, p.y, zc);
+        nrm.push(0, 0, side);
+      }
+      for (let k = 0; k < ring.length; k++) {
+        const u = start + k, v = start + ((k + 1) % ring.length);
+        if (side > 0) idx.push(center, u, v);
+        else idx.push(center, v, u);
+      }
+    }
+
+    // Drop zero-area triangles where the rounded corners pinch to a point.
+    const same = (u, v) =>
+      Math.abs(pos[3 * u] - pos[3 * v]) < 1e-9 &&
+      Math.abs(pos[3 * u + 1] - pos[3 * v + 1]) < 1e-9 &&
+      Math.abs(pos[3 * u + 2] - pos[3 * v + 2]) < 1e-9;
+    const tris = [];
+    for (let k = 0; k < idx.length; k += 3) {
+      const [u, v, w] = [idx[k], idx[k + 1], idx[k + 2]];
+      if (!same(u, v) && !same(v, w) && !same(u, w)) tris.push(u, v, w);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+    geo.setIndex(tris);
+    return geo;
+  }
+  const geometry = buildLogoGeometry();
+
+  const material = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color("#3f6d5b"),
+    roughness: 0.42,
+    metalness: 0,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.24,
+  });
+  const logo = new THREE.Mesh(geometry, material);
+  logo.name = "Logo";
+  logo.castShadow = true; // convex, so it never needs to receive its own shadow
+  scene.add(logo);
+
+  // Lighting: soft studio environment plus one key light for the cast shadow.
+  const key = new THREE.DirectionalLight(0xffffff, 1.5);
+  key.position.set(-2.4, 5.2, 3.6);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left = -3;
+  key.shadow.camera.right = 3;
+  key.shadow.camera.top = 3;
+  key.shadow.camera.bottom = -3;
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 14;
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.02;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xdfeee7, 0.6);
+  rim.position.set(3.5, 2.2, -3);
+  scene.add(rim);
+
+  // Ground: invisible except for the shadows it catches.
+  const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Contact shadow: a soft dark ellipse right under the flat edge.
+  const cs = document.createElement("canvas");
+  cs.width = cs.height = 256;
+  const g = cs.getContext("2d");
+  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  grad.addColorStop(0, "rgba(0,0,0,1)");
+  grad.addColorStop(0.45, "rgba(0,0,0,0.5)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 256);
+  const contactMat = new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(cs),
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+  });
+  const contact = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.75), contactMat);
+  contact.rotation.x = -Math.PI / 2;
+  contact.position.y = 0.002;
+  scene.add(contact);
+
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  const TARGET = new THREE.Vector3(0, 0.5, 0);
+  const VIEWS = {
+    three: new THREE.Vector3(2.15, 1.35, 3.35),
+    front: new THREE.Vector3(0, 0.62, 4.2),
+    side: new THREE.Vector3(4.2, 0.8, 0.0001),
+  };
+  camera.position.copy(VIEWS.three);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.copy(TARGET);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minDistance = 2.2;
+  controls.maxDistance = 9;
+  controls.maxPolarAngle = Math.PI / 2 - 0.04;
+  controls.autoRotate = !reduceMotion;
+  controls.autoRotateSpeed = 1.4;
+
+  const spinBtn = document.getElementById("spin");
+  const viewBtns = [...document.querySelectorAll("[data-view]")];
+
+  function setSpin(on) {
+    controls.autoRotate = on;
+    spinBtn.setAttribute("aria-pressed", String(on));
+  }
+  setSpin(controls.autoRotate);
+  spinBtn.addEventListener("click", () => setSpin(!controls.autoRotate));
+
+  let tween = null;
+  function setView(name, instant = false) {
+    viewBtns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === name)));
+    const to = VIEWS[name].clone();
+    if (instant || reduceMotion) {
+      camera.position.copy(to);
+      controls.target.copy(TARGET);
+      controls.update();
+      tween = null;
+      return;
+    }
+    tween = { from: camera.position.clone(), to, t0: performance.now(), ms: 700 };
+  }
+  viewBtns.forEach((b) =>
+    b.addEventListener("click", () => {
+      setSpin(false);
+      setView(b.dataset.view);
+    })
+  );
+  controls.addEventListener("start", () => {
+    tween = null;
+    viewBtns.forEach((b) => b.setAttribute("aria-pressed", "false"));
+  });
+
+  // Keep the logo framed on tall, narrow screens by widening the vertical FOV.
+  function fitCamera(width, height) {
+    camera.aspect = width / height;
+    const base = 30;
+    camera.fov = camera.aspect < 1.35
+      ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(base / 2)) * 1.35 / camera.aspect))
+      : base;
+    camera.updateProjectionMatrix();
+  }
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    fitCamera(w, h);
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+
+  function syncTheme() {
+    const a = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shadow-alpha")) || 0.2;
+    groundMat.opacity = a;
+    contactMat.opacity = a * 1.7;
+  }
+  syncTheme();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncTheme);
+  new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  let running = true;
+  function frame(now) {
+    if (!running) return;
+    if (tween) {
+      const k = Math.min(1, (now - tween.t0) / tween.ms);
+      const e = 1 - Math.pow(1 - k, 3);
+      // Move along an arc around the target so the camera never cuts through the logo.
+      const a = tween.from.clone().sub(TARGET), b = tween.to.clone().sub(TARGET);
+      const sa = new THREE.Spherical().setFromVector3(a), sb = new THREE.Spherical().setFromVector3(b);
+      let dTheta = sb.theta - sa.theta;
+      if (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+      if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+      const s = new THREE.Spherical(
+        sa.radius + (sb.radius - sa.radius) * e,
+        sa.phi + (sb.phi - sa.phi) * e,
+        sa.theta + dTheta * e
+      );
+      camera.position.setFromSpherical(s).add(TARGET);
+      if (k === 1) tween = null;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  window.__logo3d = {
+    THREE, renderer, scene, camera, controls, logo, ground, contact, groundMat, contactMat,
+    setView, fitCamera,
+    pause() { running = false; },
+  };
+</script>
