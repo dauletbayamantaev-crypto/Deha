@@ -1,20 +1,21 @@
-<title>Yashil yarim doira 3D</title>
+<title>Yoy va ramka logo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   :root {
-    --ground: #edf1ee;
-    --glow: #ffffff;
+    --ground: #dce3df;
+    --glow: #e7ece9;
     --ink: #17231e;
-    --muted: #5b6b64;
-    --line: #d2dbd6;
-    --chip: rgba(255, 255, 255, 0.72);
+    --muted: #54645d;
+    --line: #c3cec8;
+    --chip: rgba(255, 255, 255, 0.7);
     --chip-on: #17231e;
     --chip-on-ink: #f4f7f5;
     --brand: #3f6d5b;
+    --paper: #ffffff;
     --accent: #3f6d5b;
-    --shadow-alpha: 0.2;
+    --shadow-alpha: 0.22;
     --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   }
@@ -22,10 +23,10 @@
     :root:not([data-theme="light"]) {
       color-scheme: dark;
       --ground: #121815;
-      --glow: #1f2a25;
+      --glow: #1e2823;
       --ink: #e4ece8;
       --muted: #93a39b;
-      --line: #2a3530;
+      --line: #2e3a34;
       --chip: rgba(24, 32, 28, 0.78);
       --chip-on: #e4ece8;
       --chip-on-ink: #121815;
@@ -36,10 +37,10 @@
   :root[data-theme="dark"] {
     color-scheme: dark;
     --ground: #121815;
-    --glow: #1f2a25;
+    --glow: #1e2823;
     --ink: #e4ece8;
     --muted: #93a39b;
-    --line: #2a3530;
+    --line: #2e3a34;
     --chip: rgba(24, 32, 28, 0.78);
     --chip-on: #e4ece8;
     --chip-on-ink: #121815;
@@ -58,7 +59,7 @@
     position: relative;
     height: 100%;
     min-height: 460px;
-    background: radial-gradient(ellipse 60% 55% at 50% 58%, var(--glow), var(--ground) 72%);
+    background: radial-gradient(ellipse 60% 55% at 50% 55%, var(--glow), var(--ground) 75%);
   }
   #scene {
     position: absolute;
@@ -113,7 +114,9 @@
   .specs div { display: grid; grid-template-columns: 7.5em auto; align-items: baseline; }
   .specs dt { color: var(--muted); }
   .specs dd { margin: 0; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 8px; }
-  .swatch { width: 12px; height: 12px; border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: var(--brand); }
+  .sw { width: 12px; height: 12px; flex: none; }
+  .sw-arc { border-radius: 50% 50% 0 0 / 100% 100% 0 0; background: var(--brand); height: 6px; align-self: center; }
+  .sw-frame { background: var(--paper); box-shadow: inset 0 0 0 1px var(--line), inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--line); }
 
   .controls {
     grid-column: 1 / -1;
@@ -167,17 +170,18 @@
 </style>
 
 <main class="stage">
-  <canvas id="scene" aria-label="Yashil yarim doira logosining aylantirsa bo'ladigan 3D modeli"></canvas>
+  <canvas id="scene" aria-label="Yashil yoy va oq ramkadan iborat logoning aylantirsa bo'ladigan 3D modeli"></canvas>
   <div class="overlay">
     <header class="info">
       <p class="eyebrow">Logo · 3D model</p>
-      <h1>Yashil yarim doira</h1>
+      <h1>Yashil yoy, oq ramka</h1>
       <p class="hint">Sichqoncha yoki barmoq bilan aylantiring, g'ildirak yoki ikki barmoq bilan yaqinlashtiring.</p>
     </header>
     <dl class="specs">
-      <div><dt>Rang</dt><dd><span class="swatch" aria-hidden="true"></span>#3F6D5B</dd></div>
-      <div><dt>Nisbat</dt><dd>2 : 1</dd></div>
-      <div><dt>O'lcham</dt><dd>100 × 50 × 16 mm</dd></div>
+      <div><dt>Yoy</dt><dd><span class="sw sw-arc" aria-hidden="true"></span>#3F6D5B</dd></div>
+      <div><dt>Ramka</dt><dd><span class="sw sw-frame" aria-hidden="true"></span>#FFFFFF</dd></div>
+      <div><dt>O'lcham</dt><dd>100 × 116 × 16 mm</dd></div>
+      <div><dt>Teshik</dt><dd>54 × 43 mm</dd></div>
       <div><dt>Qirra</dt><dd>R 2 mm yumaloq</dd></div>
     </dl>
     <nav class="controls" aria-label="Ko'rinish">
@@ -231,68 +235,58 @@
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.75;
 
-  // Logo geometry: a half-disc of radius 1 standing on its flat edge, with every
-  // edge rounded over. 1 unit = 50 mm, so the piece is 100 × 50 × 16 mm.
-  // Built as an inner half-disc swept by a round profile (a Minkowski sum), so the
-  // outer silhouette is exactly the logo and every normal is analytic.
-  function buildLogoGeometry({ radius = 0.04, halfWall = 0.12, arcSteps = 288, cornerSteps = 18, roundSteps = 14 } = {}) {
-    const inner = 1 - radius;
-    const t0 = Math.asin(radius / inner);
-    const cornerX = inner * Math.cos(t0);
-    const contour = []; // { x, y, a }: inner-outline point and outward normal angle, CCW
-    for (let k = 0; k <= arcSteps; k++) {
-      const a = t0 + ((Math.PI - 2 * t0) * k) / arcSteps;
-      contour.push({ x: inner * Math.cos(a), y: inner * Math.sin(a), a });
-    }
-    for (let k = 1; k <= cornerSteps; k++) {
-      contour.push({ x: -cornerX, y: radius, a: Math.PI - t0 + ((Math.PI / 2 + t0) * k) / cornerSteps });
-    }
-    for (let k = 0; k < cornerSteps; k++) {
-      contour.push({ x: cornerX, y: radius, a: 1.5 * Math.PI + ((Math.PI / 2 + t0) * k) / cornerSteps });
-    }
+  // Logo parts in millimetres, measured from the source artwork (941 px = 100 mm).
+  const MM = {
+    frameWidth: 100,
+    frameHeight: 88.42,
+    holeWidth: 54.41,  // same as the arc's diameter
+    holeHeight: 42.83,
+    arcRadius: 27.21,
+    thickness: 16,
+    round: 2,          // edge round-over radius
+  };
 
-    const profile = []; // { phi, z }: front round-over, straight wall, back round-over
+  // A slab with every edge rounded over. Each boundary column is swept through a
+  // quarter-round profile, so normals are analytic and the silhouette is exact.
+  // Column {x, y, kx, ky, nx, ny}: at inset o it sits at (x + kx*o, y + ky*o), with
+  // outward normal (nx, ny). Loops run with the solid on their left-hand side.
+  // capTris are 2D counter-clockwise triangles covering the flat front and back faces.
+  function roundedSlab(loops, capTris, { radius, halfWall, roundSteps = 14 }) {
+    const profile = [];
     for (let i = 0; i <= roundSteps; i++) profile.push({ phi: (Math.PI / 2) * (1 - i / roundSteps), z: halfWall });
     for (let i = 0; i <= roundSteps; i++) profile.push({ phi: (-Math.PI / 2) * (i / roundSteps), z: -halfWall });
 
     const pos = [], nrm = [], idx = [];
-    const cols = contour.length;
-    for (const { phi, z } of profile) {
-      const c = Math.cos(phi), s = Math.sin(phi);
-      for (const p of contour) {
-        const nx = Math.cos(p.a), ny = Math.sin(p.a);
-        pos.push(p.x + radius * c * nx, p.y + radius * c * ny, z + radius * s);
-        nrm.push(c * nx, c * ny, s);
+    for (const loop of loops) {
+      const base = pos.length / 3, cols = loop.length;
+      for (const { phi, z } of profile) {
+        const c = Math.cos(phi), s = Math.sin(phi), o = radius * c;
+        for (const p of loop) {
+          pos.push(p.x + p.kx * o, p.y + p.ky * o, z + radius * s);
+          nrm.push(c * p.nx, c * p.ny, s);
+        }
+      }
+      for (let i = 0; i < profile.length - 1; i++) {
+        for (let j = 0; j < cols; j++) {
+          const a = base + i * cols + j, b = base + i * cols + ((j + 1) % cols);
+          idx.push(a, a + cols, b + cols, a, b + cols, b);
+        }
       }
     }
-    for (let i = 0; i < profile.length - 1; i++) {
-      for (let j = 0; j < cols; j++) {
-        const a = i * cols + j, b = i * cols + ((j + 1) % cols);
-        const d = a + cols, c = b + cols;
-        idx.push(a, d, c, a, c, b);
-      }
-    }
-
-    // Flat front and back faces: fan over the distinct inner-outline points.
-    const ring = contour.filter((p, i) => i === 0 || p.x !== contour[i - 1].x || p.y !== contour[i - 1].y);
     for (const side of [1, -1]) {
-      const zc = side * (halfWall + radius);
-      const center = pos.length / 3;
-      pos.push(0, 0.45, zc);
-      nrm.push(0, 0, side);
-      const start = pos.length / 3;
-      for (const p of ring) {
-        pos.push(p.x, p.y, zc);
-        nrm.push(0, 0, side);
-      }
-      for (let k = 0; k < ring.length; k++) {
-        const u = start + k, v = start + ((k + 1) % ring.length);
-        if (side > 0) idx.push(center, u, v);
-        else idx.push(center, v, u);
+      const z = side * (halfWall + radius);
+      for (const tri of capTris) {
+        const start = pos.length / 3;
+        for (const [x, y] of tri) {
+          pos.push(x, y, z);
+          nrm.push(0, 0, side);
+        }
+        if (side > 0) idx.push(start, start + 1, start + 2);
+        else idx.push(start, start + 2, start + 1);
       }
     }
 
-    // Drop zero-area triangles where the rounded corners pinch to a point.
+    // Drop zero-area triangles where rounded corners pinch to a point.
     const same = (u, v) =>
       Math.abs(pos[3 * u] - pos[3 * v]) < 1e-9 &&
       Math.abs(pos[3 * u + 1] - pos[3 * v + 1]) < 1e-9 &&
@@ -309,46 +303,126 @@
     geo.setIndex(tris);
     return geo;
   }
-  const geometry = buildLogoGeometry();
 
-  const material = new THREE.MeshPhysicalMaterial({
+  // A convex corner: one point whose normal sweeps from angle a0 to a1.
+  function convexCorner(x, y, a0, a1, steps) {
+    const out = [];
+    for (let k = 0; k <= steps; k++) {
+      const a = a0 + ((a1 - a0) * k) / steps;
+      const nx = Math.cos(a), ny = Math.sin(a);
+      out.push({ x, y, kx: nx, ky: ny, nx, ny });
+    }
+    return out;
+  }
+
+  const R = MM.round;
+  const slabOpts = { radius: R, halfWall: MM.thickness / 2 - R };
+
+  // White frame: a rectangle with a rectangular window, standing on the ground.
+  function buildFrame() {
+    const xo = MM.frameWidth / 2 - R, yb = R, yt = MM.frameHeight - R;
+    const outer = [
+      ...convexCorner(xo, yb, -Math.PI / 2, 0, 10),
+      ...convexCorner(xo, yt, 0, Math.PI / 2, 10),
+      ...convexCorner(-xo, yt, Math.PI / 2, Math.PI, 10),
+      ...convexCorner(-xo, yb, Math.PI, 1.5 * Math.PI, 10),
+    ];
+    // The window's edges round over into the opening; its corners stay crisp.
+    const cy = MM.frameHeight / 2, hx = MM.holeWidth / 2 + R, hy = MM.holeHeight / 2 + R;
+    const BL = { x: -hx, y: cy - hy, kx: 1, ky: 1 }, TL = { x: -hx, y: cy + hy, kx: 1, ky: -1 };
+    const TR = { x: hx, y: cy + hy, kx: -1, ky: -1 }, BR = { x: hx, y: cy - hy, kx: -1, ky: 1 };
+    const side = (a, b, nx, ny) => [{ ...a, nx, ny }, { ...b, nx, ny }];
+    const hole = [...side(BL, TL, 1, 0), ...side(TL, TR, 0, -1), ...side(TR, BR, -1, 0), ...side(BR, BL, 0, 1)];
+
+    const O = [[xo, yb], [xo, yt], [-xo, yt], [-xo, yb]];
+    const H = [[BR.x, BR.y], [TR.x, TR.y], [TL.x, TL.y], [BL.x, BL.y]];
+    const caps = [];
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4;
+      caps.push([O[i], O[j], H[j]], [O[i], H[j], H[i]]);
+    }
+    return roundedSlab([outer, hole], caps, slabOpts);
+  }
+
+  // Green arc: a half-disc sitting on the frame's top edge, as wide as the window.
+  function buildArc() {
+    const y0 = MM.frameHeight, inner = MM.arcRadius - R;
+    const t0 = Math.asin(R / inner);
+    const cx = inner * Math.cos(t0);
+    const loop = [];
+    for (let k = 0; k <= 288; k++) {
+      const a = t0 + ((Math.PI - 2 * t0) * k) / 288;
+      const nx = Math.cos(a), ny = Math.sin(a);
+      loop.push({ x: inner * nx, y: y0 + inner * ny, kx: nx, ky: ny, nx, ny });
+    }
+    loop.push(...convexCorner(-cx, y0 + R, Math.PI - t0, 1.5 * Math.PI, 18).slice(1));
+    loop.push(...convexCorner(cx, y0 + R, 1.5 * Math.PI, 2 * Math.PI + t0, 18).slice(0, -1));
+
+    const ring = loop.filter((p, i) => i === 0 || p.x !== loop[i - 1].x || p.y !== loop[i - 1].y);
+    const c = [0, y0 + 0.45 * MM.arcRadius];
+    const caps = [];
+    for (let k = 0; k < ring.length; k++) {
+      const p = ring[k], q = ring[(k + 1) % ring.length];
+      if (p.x !== q.x || p.y !== q.y) caps.push([c, [p.x, p.y], [q.x, q.y]]);
+    }
+    return roundedSlab([loop], caps, slabOpts);
+  }
+
+  const greenMat = new THREE.MeshPhysicalMaterial({
     color: new THREE.Color("#3f6d5b"),
     roughness: 0.42,
     metalness: 0,
     clearcoat: 0.55,
     clearcoatRoughness: 0.24,
   });
-  const logo = new THREE.Mesh(geometry, material);
+  const whiteMat = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color("#f1f2f0"),
+    roughness: 0.45,
+    metalness: 0,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.3,
+  });
+
+  const arc = new THREE.Mesh(buildArc(), greenMat);
+  arc.name = "Yashil yoy";
+  const frame = new THREE.Mesh(buildFrame(), whiteMat);
+  frame.name = "Oq ramka";
+  const logo = new THREE.Group();
   logo.name = "Logo";
-  logo.castShadow = true; // convex, so it never needs to receive its own shadow
+  for (const part of [arc, frame]) {
+    part.castShadow = true;
+    part.receiveShadow = true; // the arc drops a little shadow onto the frame's top edge
+    logo.add(part);
+  }
+  logo.scale.setScalar(1 / 50); // scene units: 1 = 50 mm
   scene.add(logo);
 
   // Lighting: soft studio environment plus one key light for the cast shadow.
   const key = new THREE.DirectionalLight(0xffffff, 1.5);
-  key.position.set(-2.4, 5.2, 3.6);
+  key.position.set(-2.6, 6.2, 4.2);
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
-  key.shadow.camera.left = -3;
-  key.shadow.camera.right = 3;
-  key.shadow.camera.top = 3;
-  key.shadow.camera.bottom = -3;
+  key.shadow.camera.left = -3.2;
+  key.shadow.camera.right = 3.2;
+  key.shadow.camera.top = 3.2;
+  key.shadow.camera.bottom = -3.2;
   key.shadow.camera.near = 0.5;
-  key.shadow.camera.far = 14;
+  key.shadow.camera.far = 18;
   key.shadow.bias = -0.0004;
   key.shadow.normalBias = 0.02;
   scene.add(key);
   const rim = new THREE.DirectionalLight(0xdfeee7, 0.6);
-  rim.position.set(3.5, 2.2, -3);
+  rim.position.set(3.5, 2.6, -3);
   scene.add(rim);
 
   // Ground: invisible except for the shadows it catches.
-  const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
+  const groundMat = new THREE.ShadowMaterial({ opacity: 0.22 });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Contact shadow: a soft dark ellipse right under the flat edge.
+  // Contact shadow: a soft dark ellipse right under the base.
   const cs = document.createElement("canvas");
   cs.width = cs.height = 256;
   const g = cs.getContext("2d");
@@ -362,7 +436,7 @@
     map: new THREE.CanvasTexture(cs),
     color: 0x000000,
     transparent: true,
-    opacity: 0.35,
+    opacity: 0.37,
     depthWrite: false,
   });
   const contact = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 0.75), contactMat);
@@ -371,11 +445,11 @@
   scene.add(contact);
 
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-  const TARGET = new THREE.Vector3(0, 0.5, 0);
+  const TARGET = new THREE.Vector3(0, 1.06, 0);
   const VIEWS = {
-    three: new THREE.Vector3(2.15, 1.35, 3.35),
-    front: new THREE.Vector3(0, 0.62, 4.2),
-    side: new THREE.Vector3(4.2, 0.8, 0.0001),
+    three: new THREE.Vector3(3.45, 2.55, 5.4),
+    front: new THREE.Vector3(0, 1.25, 6.6),
+    side: new THREE.Vector3(6.6, 1.45, 0.0001),
   };
   camera.position.copy(VIEWS.three);
 
@@ -384,8 +458,8 @@
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
-  controls.minDistance = 2.2;
-  controls.maxDistance = 9;
+  controls.minDistance = 3;
+  controls.maxDistance = 12;
   controls.maxPolarAngle = Math.PI / 2 - 0.04;
   controls.autoRotate = !reduceMotion;
   controls.autoRotateSpeed = 1.4;
@@ -428,8 +502,8 @@
   function fitCamera(width, height) {
     camera.aspect = width / height;
     const base = 30;
-    camera.fov = camera.aspect < 1.35
-      ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(base / 2)) * 1.35 / camera.aspect))
+    camera.fov = camera.aspect < 1
+      ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(base / 2)) / camera.aspect))
       : base;
     camera.updateProjectionMatrix();
   }
@@ -442,7 +516,7 @@
   resize();
 
   function syncTheme() {
-    const a = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shadow-alpha")) || 0.2;
+    const a = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--shadow-alpha")) || 0.22;
     groundMat.opacity = a;
     contactMat.opacity = a * 1.7;
   }
@@ -451,7 +525,7 @@
   new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   let running = true;
-  function frame(now) {
+  function frameLoop(now) {
     if (!running) return;
     if (tween) {
       const k = Math.min(1, (now - tween.t0) / tween.ms);
@@ -472,12 +546,12 @@
     }
     controls.update();
     renderer.render(scene, camera);
-    requestAnimationFrame(frame);
+    requestAnimationFrame(frameLoop);
   }
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frameLoop);
 
   window.__logo3d = {
-    THREE, renderer, scene, camera, controls, logo, ground, contact, groundMat, contactMat,
+    THREE, renderer, scene, camera, controls, logo, arc, frame, ground, contact, groundMat, contactMat,
     setView, fitCamera,
     pause() { running = false; },
   };
