@@ -149,6 +149,17 @@
   .controls button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .controls button[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
   .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .controls .primary { background: var(--brand); color: #ffffff; }
+  .controls .primary:hover { background: color-mix(in srgb, var(--brand) 84%, #000000); }
+  .controls .primary:disabled { opacity: 0.6; cursor: progress; }
+  .seg[hidden], .status[hidden] { display: none; }
+  .status {
+    flex-basis: 100%;
+    margin: 0;
+    text-align: center;
+    font: 12px/1.4 var(--mono);
+    color: var(--muted);
+  }
 
   .fallback {
     position: absolute;
@@ -166,6 +177,7 @@
     .specs { grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 11px; }
     .specs div { grid-template-columns: 1fr; gap: 2px; }
     .controls { grid-row: 4; }
+    .controls button { padding: 9px 12px; }
   }
 </style>
 
@@ -175,7 +187,7 @@
     <header class="info">
       <p class="eyebrow">Logo · 3D model</p>
       <h1>Yashil yoy, oq ramka</h1>
-      <p class="hint">Sichqoncha yoki barmoq bilan aylantiring, g'ildirak yoki ikki barmoq bilan yaqinlashtiring.</p>
+      <p class="hint">Sichqoncha yoki barmoq bilan aylantiring, g'ildirak yoki ikki barmoq bilan yaqinlashtiring. Kerakli burchakni topgach, shu ko'rinishni shaffof fonli PNG qilib yuklab oling.</p>
     </header>
     <dl class="specs">
       <div><dt>Yoy</dt><dd><span class="sw sw-arc" aria-hidden="true"></span>#3F6D5B</dd></div>
@@ -193,6 +205,14 @@
       <div class="seg">
         <button type="button" id="spin" aria-pressed="true">Aylanish</button>
       </div>
+      <div class="seg" id="export" role="group" aria-label="PNG eksport" hidden>
+        <button type="button" id="shadow" aria-pressed="false" title="Yerga tushgan soyani ham rasmga qo'shish">Soya</button>
+        <button type="button" id="size-1k" data-size="1024" aria-pressed="false" title="Uzun tomoni 1024 px">1K</button>
+        <button type="button" id="size-2k" data-size="2048" aria-pressed="true" title="Uzun tomoni 2048 px">2K</button>
+        <button type="button" id="size-4k" data-size="4096" aria-pressed="false" title="Uzun tomoni 4096 px">4K</button>
+        <button type="button" id="save-png" class="primary">PNG yuklab olish</button>
+      </div>
+      <p class="status" id="export-status" role="status" aria-live="polite" hidden></p>
     </nav>
   </div>
   <p class="fallback" id="fallback" hidden>Bu brauzerda WebGL o'chirilgan, shuning uchun 3D modelni ko'rsatib bo'lmadi.</p>
@@ -549,6 +569,154 @@
     requestAnimationFrame(frameLoop);
   }
   requestAnimationFrame(frameLoop);
+
+  // PNG export: the current camera angle on a transparent background, cropped
+  // around the logo, with the longest side at the chosen size.
+  const exportGroup = document.getElementById("export");
+  const saveBtn = document.getElementById("save-png");
+  const shadowBtn = document.getElementById("shadow");
+  const sizeBtns = [...exportGroup.querySelectorAll("[data-size]")];
+  const statusEl = document.getElementById("export-status");
+  let exportSize = 2048;
+  let exportShadow = false;
+
+  sizeBtns.forEach((b) =>
+    b.addEventListener("click", () => {
+      exportSize = Number(b.dataset.size);
+      sizeBtns.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    })
+  );
+  shadowBtn.addEventListener("click", () => {
+    exportShadow = !exportShadow;
+    shadowBtn.setAttribute("aria-pressed", String(exportShadow));
+  });
+
+  function say(text) {
+    statusEl.textContent = text;
+    statusEl.hidden = !text;
+  }
+
+  function renderPNG(longSide, withShadow) {
+    const gl = renderer.getContext();
+    const maxDim = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_VIEWPORT_DIMS)[0], 8192);
+    const w0 = stage.clientWidth, h0 = stage.clientHeight;
+    const saved = { ground: ground.visible, contact: contact.visible, g: groundMat.opacity, c: contactMat.opacity };
+    ground.visible = contact.visible = withShadow;
+    groundMat.opacity = 0.28;
+    contactMat.opacity = 0.45;
+    renderer.setPixelRatio(1);
+    try {
+      // Pass 1: locate the logo in a window three times the screen, so parts
+      // that run off the edge of the screen still end up in the picture.
+      const probe = 900;
+      const pw = w0 >= h0 ? probe : Math.round((probe * w0) / h0);
+      const ph = w0 >= h0 ? Math.round((probe * h0) / w0) : probe;
+      renderer.setSize(pw, ph, false);
+      camera.setViewOffset(w0, h0, -w0, -h0, 3 * w0, 3 * h0);
+      renderer.render(scene, camera);
+      const px = new Uint8Array(pw * ph * 4);
+      gl.readPixels(0, 0, pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let x0 = pw, y0 = ph, x1 = -1, y1 = -1;
+      for (let y = 0; y < ph; y++) {
+        for (let x = 0; x < pw; x++) {
+          if (px[(y * pw + x) * 4 + 3] > 4) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+      }
+      if (x1 < 0) return null;
+
+      // readPixels rows run bottom-up; convert the box to top-down screen units.
+      const sx = (3 * w0) / pw, sy = (3 * h0) / ph;
+      let left = -w0 + x0 * sx, right = -w0 + (x1 + 1) * sx;
+      let top = -h0 + (ph - 1 - y1) * sy, bottom = -h0 + (ph - y0) * sy;
+      const pad = 0.04 * Math.max(right - left, bottom - top) + Math.max(sx, sy);
+      left -= pad; right += pad; top -= pad; bottom += pad;
+
+      // Pass 2: render only that box at full size, supersampled 2x when it fits.
+      const bw = right - left, bh = bottom - top;
+      const outW = bw >= bh ? longSide : Math.round((longSide * bw) / bh);
+      const outH = bw >= bh ? Math.round((longSide * bh) / bw) : longSide;
+      const ss = Math.min(2, maxDim / Math.max(outW, outH));
+      renderer.setSize(Math.round(outW * ss), Math.round(outH * ss), false);
+      camera.setViewOffset(w0, h0, left, top, bw, bh);
+      renderer.render(scene, camera);
+      const out = document.createElement("canvas");
+      out.width = outW;
+      out.height = outH;
+      const ctx = out.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(renderer.domElement, 0, 0, outW, outH);
+      return out;
+    } finally {
+      camera.clearViewOffset();
+      ground.visible = saved.ground;
+      contact.visible = saved.contact;
+      groundMat.opacity = saved.g;
+      contactMat.opacity = saved.c;
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      resize();
+      renderer.render(scene, camera);
+    }
+  }
+
+  let downloads = null;
+  let saveLocally = false; // a copy opened straight from disk, outside claude.ai
+
+  async function onSave() {
+    saveBtn.disabled = true;
+    say("PNG tayyorlanmoqda…");
+    await new Promise(requestAnimationFrame);
+    try {
+      const png = renderPNG(exportSize, exportShadow);
+      if (!png) {
+        say("Logo kadrda ko'rinmayapti. Kamerani logoga qaratib, qayta bosing.");
+        return;
+      }
+      const blob = await new Promise((resolve) => png.toBlob(resolve, "image/png"));
+      const filename = `logo-3d-${png.width}x${png.height}.png`;
+      if (saveLocally) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        say(`Saqlandi: ${filename}`);
+        return;
+      }
+      await downloads.save({ filename, data: blob });
+      say(`Saqlandi: ${filename}`);
+    } catch (err) {
+      const code = err && err.code;
+      if (code === "declined") say("Yuklab olish bekor qilindi.");
+      else if (code === "rate_limited") say("Saqlash oynasi allaqachon ochiq. Uni yoping va qayta bosing.");
+      else if (code === "too_large") say("Fayl juda katta chiqdi. Kichikroq o'lchamni tanlang.");
+      else {
+        say("Bu yerda fayl yuklab olib bo'lmaydi.");
+        exportGroup.hidden = true;
+      }
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+  saveBtn.addEventListener("click", onSave);
+
+  if (!window.claude) {
+    saveLocally = true;
+    exportGroup.hidden = false;
+  } else if (typeof window.claude.use === "function") {
+    window.claude.use("downloads").then(
+      (ns) => {
+        downloads = ns;
+        exportGroup.hidden = !ns;
+      },
+      () => {}
+    );
+  }
 
   window.__logo3d = {
     THREE, renderer, scene, camera, controls, logo, arc, frame, ground, contact, groundMat, contactMat,
